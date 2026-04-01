@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("/assets/fonts/BricolageGrotesque.woff2") format("woff2");
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Satoshi";
+  src: url("/assets/fonts/Satoshi.woff2") format("woff2");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --radius: 0.625rem;
+    /* Indigo/Blue primary palette */
+    --background: 0.975 0.005 250;
+    --foreground: 0.18 0.04 265;
+    --card: 1 0 0;
+    --card-foreground: 0.18 0.04 265;
+    --popover: 1 0 0;
+    --popover-foreground: 0.18 0.04 265;
+    --primary: 0.52 0.22 265;
+    --primary-foreground: 0.99 0 0;
+    --secondary: 0.93 0.03 255;
+    --secondary-foreground: 0.25 0.07 265;
+    --muted: 0.93 0.015 255;
+    --muted-foreground: 0.52 0.04 255;
+    --accent: 0.93 0.03 255;
+    --accent-foreground: 0.25 0.07 265;
+    --destructive: 0.58 0.22 28;
+    --destructive-foreground: 0.99 0 0;
+    --border: 0.88 0.02 260;
+    --input: 0.88 0.02 260;
+    --ring: 0.52 0.22 265;
+    --chart-1: 0.52 0.22 265;
+    --chart-2: 0.62 0.19 145;
+    --chart-3: 0.75 0.19 78;
+    --chart-4: 0.64 0.22 300;
+    --chart-5: 0.58 0.22 28;
+    --sidebar: 0.945 0.04 250;
+    --sidebar-foreground: 0.18 0.04 265;
+    --sidebar-primary: 0.52 0.22 265;
+    --sidebar-primary-foreground: 0.99 0 0;
+    --sidebar-accent: 0.88 0.05 255;
+    --sidebar-accent-foreground: 0.25 0.07 265;
+    --sidebar-border: 0.85 0.04 255;
+    --sidebar-ring: 0.52 0.22 265;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Satoshi", "Plus Jakarta Sans", system-ui, sans-serif;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  }
+}
+
+@layer utilities {
+  .sidebar-gradient {
+    background: linear-gradient(
+      160deg,
+      oklch(0.45 0.21 265) 0%,
+      oklch(0.38 0.2 270) 100%
+    );
+  }
+
+  /* Status badge styles */
+  .status-pending {
+    background-color: oklch(0.97 0.05 75);
+    color: oklch(0.5 0.18 75);
+    border: 1px solid oklch(0.88 0.1 75);
+  }
+  .status-approved {
+    background-color: oklch(0.96 0.05 145);
+    color: oklch(0.44 0.18 145);
+    border: 1px solid oklch(0.82 0.1 145);
+  }
+  .status-rejected {
+    background-color: oklch(0.97 0.04 28);
+    color: oklch(0.5 0.2 28);
+    border: 1px solid oklch(0.88 0.1 28);
+  }
+  .status-completed {
+    background-color: oklch(0.96 0.04 255);
+    color: oklch(0.45 0.18 265);
+    border: 1px solid oklch(0.82 0.08 255);
+  }
+  .status-notfulfilled {
+    background-color: oklch(0.94 0.01 255);
+    color: oklch(0.45 0.04 255);
+    border: 1px solid oklch(0.82 0.02 255);
+  }
+
+  .shadow-card {
+    box-shadow: 0 1px 3px 0 oklch(0.5 0.1 265 / 0.08), 0 1px 2px -1px
+      oklch(0.5 0.1 265 / 0.06);
+  }
+  .shadow-xs {
+    box-shadow: 0 1px 2px 0 oklch(0.5 0.1 265 / 0.06);
+  }
+}
