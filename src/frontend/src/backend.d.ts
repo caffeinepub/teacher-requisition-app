@@ -37,6 +37,8 @@ export interface RequisitionView {
   createdAt: bigint;
   status: Status;
   history: HistoryEntry[];
+  category: string;
+  location: string;
 }
 
 export interface UserView {
@@ -61,7 +63,7 @@ export interface backendInterface {
   deleteUser(sessionId: string, email: string): Promise<{ ok: null } | { err: string }>;
   listUsers(sessionId: string): Promise<{ ok: UserView[] } | { err: string }>;
 
-  createRequisition(sessionId: string, itemName: string, description: string, quantity: bigint, priority: Priority, dateNeeded: string): Promise<{ ok: bigint } | { err: string }>;
+  createRequisition(sessionId: string, itemName: string, description: string, quantity: bigint, priority: Priority, dateNeeded: string, category: string, location: string): Promise<{ ok: bigint } | { err: string }>;
   getMyRequisitions(sessionId: string): Promise<{ ok: RequisitionView[] } | { err: string }>;
   getAllRequisitions(sessionId: string): Promise<{ ok: RequisitionView[] } | { err: string }>;
   approveRequisition(sessionId: string, id: bigint, remarks: [] | [string]): Promise<{ ok: null } | { err: string }>;

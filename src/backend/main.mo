@@ -15,100 +15,37 @@ persistent actor {
   type Priority = { #low; #medium; #high; #urgent };
   type Status = { #pending; #approved; #rejected; #completed; #notFulfilled };
 
-  type User = {
-    email : Text;
-    passwordHash : Text;
-    name : Text;
-    role : AppRole;
-  };
-
-  type UserView = {
-    email : Text;
-    name : Text;
-    role : AppRole;
-  };
-
-  type HistoryEntry = {
-    actorEmail : Text;
-    actorName : Text;
-    timestamp : Int;
-    status : Status;
-    remarks : ?Text;
-  };
-
-  // Legacy tuple (10 fields) -- kept only for stable-variable upgrade compatibility.
-  // New requisitions use ReqTuple (12 fields) stored in requisitionsEntriesV2.
+  type User = { email : Text; passwordHash : Text; name : Text; role : AppRole };
+  type UserView = { email : Text; name : Text; role : AppRole };
+  type HistoryEntry = { actorEmail : Text; actorName : Text; timestamp : Int; status : Status; remarks : ?Text };
   type ReqTupleLegacy = (Text, Text, Text, Nat, Priority, Text, Text, Int, Status, [HistoryEntry]);
-
-  // Current tuple: adds category (index 10) and location (index 11)
   type ReqTuple = (Text, Text, Text, Nat, Priority, Text, Text, Int, Status, [HistoryEntry], Text, Text);
+  type RequisitionView = { id : Nat; itemName : Text; description : Text; quantity : Nat; priority : Priority; dateNeeded : Text; teacherEmail : Text; teacherName : Text; createdAt : Int; status : Status; history : [HistoryEntry]; category : Text; location : Text };
+  type Session = { email : Text; name : Text; role : AppRole; createdAt : Int };
+  type LoginResult = { sessionId : Text; name : Text; role : AppRole };
 
-  type RequisitionView = {
-    id : Nat;
-    itemName : Text;
-    description : Text;
-    quantity : Nat;
-    priority : Priority;
-    dateNeeded : Text;
-    teacherEmail : Text;
-    teacherName : Text;
-    createdAt : Int;
-    status : Status;
-    history : [HistoryEntry];
-    category : Text;
-    location : Text;
-  };
-
-  type Session = {
-    email : Text;
-    name : Text;
-    role : AppRole;
-    createdAt : Int;
-  };
-
-  type LoginResult = {
-    sessionId : Text;
-    name : Text;
-    role : AppRole;
-  };
-
-  // Stable storage
+  // Stable storage (implicitly stable in persistent actor)
   var usersEntries : [(Text, User)] = [];
   var sessionsEntries : [(Text, Session)] = [];
-  // Legacy stable var -- preserved so the upgrade type-check passes; migrated to v2 on first postupgrade.
   var requisitionsEntries : [(Nat, ReqTupleLegacy)] = [];
-  // New stable var holding the extended tuple with category + location.
   var requisitionsEntriesV2 : [(Nat, ReqTuple)] = [];
   var nextReqId : Nat = 1;
   var sessionCounter : Nat = 0;
 
   func natHash(n : Nat) : Nat32 { Nat32.fromNat(n % 2_147_483_647) };
 
-  transient var users : HashMap.HashMap<Text, User> = HashMap.fromIter(
-    Iter.fromArray(usersEntries), 10, Text.equal, Text.hash,
-  );
-
-  transient var sessions : HashMap.HashMap<Text, Session> = HashMap.fromIter(
-    Iter.fromArray(sessionsEntries), 10, Text.equal, Text.hash,
-  );
-
-  transient var requisitions : HashMap.HashMap<Nat, ReqTuple> = HashMap.fromIter(
-    Iter.fromArray(requisitionsEntriesV2), 10, Nat.equal, natHash,
-  );
+  // HashMaps are transient -- cannot be stable, rebuilt on upgrade via postupgrade
+  transient var users : HashMap.HashMap<Text, User> = HashMap.fromIter(Iter.fromArray(usersEntries), 10, Text.equal, Text.hash);
+  transient var sessions : HashMap.HashMap<Text, Session> = HashMap.fromIter(Iter.fromArray(sessionsEntries), 10, Text.equal, Text.hash);
+  transient var requisitions : HashMap.HashMap<Nat, ReqTuple> = HashMap.fromIter(Iter.fromArray(requisitionsEntriesV2), 10, Nat.equal, natHash);
 
   let adminEmail = "murtazatinwala@msbinstitute.com";
 
   func seedAdmin() {
     if (users.get(adminEmail) == null) {
-      users.put(adminEmail, {
-        email = adminEmail;
-        passwordHash = "msb123";
-        name = "Administrator";
-        role = #superAdmin;
-      });
+      users.put(adminEmail, { email = adminEmail; passwordHash = "msb123"; name = "Administrator"; role = #superAdmin });
     };
   };
-
   seedAdmin();
 
   func makeSessionId() : Text {
@@ -116,14 +53,10 @@ persistent actor {
     "sess-" # Int.toText(Time.now()) # "-" # Nat.toText(sessionCounter);
   };
 
-  func getSession(sessionId : Text) : ?Session {
-    sessions.get(sessionId);
-  };
+  func getSession(sessionId : Text) : ?Session { sessions.get(sessionId) };
 
   func reqToView(id : Nat, t : ReqTuple) : RequisitionView {
-    { id; itemName = t.0; description = t.1; teacherEmail = t.2; quantity = t.3;
-      priority = t.4; dateNeeded = t.5; teacherName = t.6; createdAt = t.7;
-      status = t.8; history = t.9; category = t.10; location = t.11; };
+    { id; itemName = t.0; description = t.1; teacherEmail = t.2; quantity = t.3; priority = t.4; dateNeeded = t.5; teacherName = t.6; createdAt = t.7; status = t.8; history = t.9; category = t.10; location = t.11 };
   };
 
   public func login(email : Text, password : Text) : async Result.Result<LoginResult, Text> {
@@ -139,9 +72,7 @@ persistent actor {
     };
   };
 
-  public func logout(sessionId : Text) : async () {
-    sessions.delete(sessionId);
-  };
+  public func logout(sessionId : Text) : async () { sessions.delete(sessionId) };
 
   public query func validateSession(sessionId : Text) : async ?{ email : Text; name : Text; role : AppRole } {
     switch (sessions.get(sessionId)) {
@@ -312,20 +243,13 @@ persistent actor {
     usersEntries := Iter.toArray(users.entries());
     sessionsEntries := Iter.toArray(sessions.entries());
     requisitionsEntriesV2 := Iter.toArray(requisitions.entries());
-    // Clear legacy entries after migration so they don't take up space.
     requisitionsEntries := [];
   };
 
   system func postupgrade() {
     users := HashMap.fromIter(Iter.fromArray(usersEntries), 10, Text.equal, Text.hash);
     sessions := HashMap.fromIter(Iter.fromArray(sessionsEntries), 10, Text.equal, Text.hash);
-    // Migrate any legacy entries (category/location default to empty string).
-    let legacyMigrated = Array.map<(Nat, ReqTupleLegacy), (Nat, ReqTuple)>(
-      requisitionsEntries,
-      func((id, t) : (Nat, ReqTupleLegacy)) : (Nat, ReqTuple) {
-        (id, (t.0, t.1, t.2, t.3, t.4, t.5, t.6, t.7, t.8, t.9, "", ""))
-      }
-    );
+    let legacyMigrated = Array.map<(Nat, ReqTupleLegacy), (Nat, ReqTuple)>(requisitionsEntries, func((id, t) : (Nat, ReqTupleLegacy)) : (Nat, ReqTuple) { (id, (t.0, t.1, t.2, t.3, t.4, t.5, t.6, t.7, t.8, t.9, "", "")) });
     let combined = Array.append(legacyMigrated, requisitionsEntriesV2);
     requisitions := HashMap.fromIter(Iter.fromArray(combined), 10, Nat.equal, natHash);
     usersEntries := [];

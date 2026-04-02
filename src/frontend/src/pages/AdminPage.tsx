@@ -40,12 +40,14 @@ import {
   GraduationCap,
   Loader2,
   LogOut,
+  Menu,
   Pencil,
   PlusCircle,
   ShieldCheck,
   Trash2,
   Users,
   Wrench,
+  X,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
@@ -126,6 +128,7 @@ export function AdminPage({ session, onLogout }: Props) {
   const [deleteEmail, setDeleteEmail] = useState<string | null>(null);
   const [form, setForm] = useState<UserFormState>(emptyForm);
   const [formErrors, setFormErrors] = useState<Partial<UserFormState>>({});
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const { data: users = [], isLoading } = useGetAllUsers(session.sessionId);
   const { mutateAsync: createUser, isPending: isCreating } = useAdminCreateUser(
@@ -225,68 +228,68 @@ export function AdminPage({ session, onLogout }: Props) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+          onKeyDown={(e) => e.key === "Escape" && setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Desktop sidebar */}
       <aside
-        className="sidebar-gradient w-60 flex-shrink-0 flex flex-col"
+        className="sidebar-gradient w-60 flex-shrink-0 flex-col hidden md:flex"
         data-ocid="admin.panel"
       >
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-white/20">
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/20">
-            <BookOpen size={16} className="text-white" />
-          </div>
-          <span className="text-white font-bold text-base tracking-tight">
-            SchoolReq
-          </span>
-        </div>
-        <nav className="flex-1 py-4 px-3">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-white/50 px-3 mb-2">
-            Navigation
-          </p>
-          <button
-            type="button"
-            data-ocid="admin.users.link"
-            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg mb-1 text-sm font-medium transition-colors bg-white/20 text-white"
-          >
-            <Users size={18} />
-            User Management
-          </button>
-        </nav>
-        <div className="px-3 py-4 border-t border-white/20">
-          <div className="flex items-center gap-3 px-2 mb-3">
-            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-              {initials}
-            </div>
-            <div className="min-w-0">
-              <p className="text-white text-xs font-semibold truncate">
-                {session.name}
-              </p>
-              <p className="text-white/50 text-[10px]">Super Admin</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            data-ocid="admin.logout.button"
-            onClick={onLogout}
-            className="w-full flex items-center gap-2 px-4 py-2 rounded-lg text-white/60 hover:bg-white/10 hover:text-white text-sm transition-colors"
-          >
-            <LogOut size={16} />
-            Sign Out
-          </button>
-        </div>
+        <AdminSidebarContent
+          session={session}
+          initials={initials}
+          onLogout={onLogout}
+        />
+      </aside>
+
+      {/* Mobile sidebar drawer */}
+      <aside
+        className={`sidebar-gradient w-72 flex-shrink-0 flex flex-col shadow-2xl fixed inset-y-0 left-0 z-50 transition-transform duration-300 md:hidden ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+        data-ocid="admin.panel"
+      >
+        <AdminSidebarContent
+          session={session}
+          initials={initials}
+          onLogout={onLogout}
+          onClose={() => setSidebarOpen(false)}
+        />
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="bg-white border-b border-border flex items-center justify-between px-6 h-14 flex-shrink-0">
+        <header className="bg-white border-b border-border flex items-center justify-between px-4 md:px-6 h-14 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <Users size={16} className="text-muted-foreground" />
+            <button
+              type="button"
+              className="md:hidden p-2 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-accent"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open menu"
+              data-ocid="admin.menu.button"
+            >
+              <Menu size={20} />
+            </button>
+            <Users
+              size={16}
+              className="text-muted-foreground hidden md:block"
+            />
             <span className="text-sm font-semibold text-foreground">
               User Management
             </span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
             <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold">
               {initials}
             </div>
-            <div>
+            <div className="hidden sm:block">
               <p className="text-xs font-semibold text-foreground leading-tight">
                 {session.name}
               </p>
@@ -297,9 +300,9 @@ export function AdminPage({ session, onLogout }: Props) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6">
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap gap-2 items-start justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-foreground font-display">
                   User Management
@@ -318,7 +321,7 @@ export function AdminPage({ session, onLogout }: Props) {
               </Button>
             </div>
 
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
                 {
                   label: "Total Users",
@@ -381,7 +384,7 @@ export function AdminPage({ session, onLogout }: Props) {
             </div>
 
             <div
-              className="bg-white rounded-[10px] border border-border shadow-card overflow-hidden"
+              className="bg-white rounded-[10px] border border-border shadow-card overflow-x-auto"
               data-ocid="admin.users.table"
             >
               <Table>
@@ -598,6 +601,76 @@ export function AdminPage({ session, onLogout }: Props) {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+function AdminSidebarContent({
+  session,
+  initials,
+  onLogout,
+  onClose,
+}: {
+  session: SessionData;
+  initials: string;
+  onLogout: () => void;
+  onClose?: () => void;
+}) {
+  return (
+    <>
+      <div className="flex items-center gap-3 px-5 py-5 border-b border-white/20">
+        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/20">
+          <BookOpen size={16} className="text-white" />
+        </div>
+        <span className="text-white font-bold text-base tracking-tight flex-1">
+          SchoolReq
+        </span>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="md:hidden text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+            aria-label="Close menu"
+          >
+            <X size={20} />
+          </button>
+        )}
+      </div>
+      <nav className="flex-1 py-4 px-3">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/50 px-3 mb-2">
+          Navigation
+        </p>
+        <button
+          type="button"
+          data-ocid="admin.users.link"
+          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg mb-1 text-sm font-medium transition-colors bg-white/20 text-white"
+        >
+          <Users size={18} />
+          User Management
+        </button>
+      </nav>
+      <div className="px-3 py-4 border-t border-white/20">
+        <div className="flex items-center gap-3 px-2 mb-3">
+          <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+            {initials}
+          </div>
+          <div className="min-w-0">
+            <p className="text-white text-xs font-semibold truncate">
+              {session.name}
+            </p>
+            <p className="text-white/50 text-[10px]">Super Admin</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          data-ocid="admin.logout.button"
+          onClick={onLogout}
+          className="w-full flex items-center gap-2 px-4 py-2 rounded-lg text-white/60 hover:bg-white/10 hover:text-white text-sm transition-colors"
+        >
+          <LogOut size={16} />
+          Sign Out
+        </button>
+      </div>
+    </>
   );
 }
 

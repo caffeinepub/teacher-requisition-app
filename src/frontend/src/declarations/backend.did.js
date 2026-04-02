@@ -46,6 +46,8 @@ const RequisitionView = IDL.Record({
   createdAt: IDL.Int,
   status: Status,
   history: IDL.Vec(HistoryEntry),
+  category: IDL.Text,
+  location: IDL.Text,
 });
 
 const UserView = IDL.Record({
@@ -82,7 +84,7 @@ export const idlService = IDL.Service({
   deleteUser: IDL.Func([IDL.Text, IDL.Text], [NullVariant], []),
   listUsers: IDL.Func([IDL.Text], [UsersVariant], ['query']),
 
-  createRequisition: IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Nat, Priority, IDL.Text], [NatVariant], []),
+  createRequisition: IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Nat, Priority, IDL.Text, IDL.Text, IDL.Text], [NatVariant], []),
   getMyRequisitions: IDL.Func([IDL.Text], [RequisitionsVariant], ['query']),
   getAllRequisitions: IDL.Func([IDL.Text], [RequisitionsVariant], ['query']),
   approveRequisition: IDL.Func([IDL.Text, IDL.Nat, IDL.Opt(IDL.Text)], [NullVariant], []),
@@ -132,6 +134,8 @@ export const idlFactory = ({ IDL }) => {
     createdAt: IDL.Int,
     status: Status,
     history: IDL.Vec(HistoryEntry),
+    category: IDL.Text,
+    location: IDL.Text,
   });
   const UserView = IDL.Record({
     email: IDL.Text,
@@ -161,7 +165,7 @@ export const idlFactory = ({ IDL }) => {
     updateUser: IDL.Func([IDL.Text, IDL.Text, IDL.Opt(IDL.Text), IDL.Opt(IDL.Text), IDL.Opt(AppRole)], [NullVariant], []),
     deleteUser: IDL.Func([IDL.Text, IDL.Text], [NullVariant], []),
     listUsers: IDL.Func([IDL.Text], [UsersVariant], ['query']),
-    createRequisition: IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Nat, Priority, IDL.Text], [NatVariant], []),
+    createRequisition: IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Nat, Priority, IDL.Text, IDL.Text, IDL.Text], [NatVariant], []),
     getMyRequisitions: IDL.Func([IDL.Text], [RequisitionsVariant], ['query']),
     getAllRequisitions: IDL.Func([IDL.Text], [RequisitionsVariant], ['query']),
     approveRequisition: IDL.Func([IDL.Text, IDL.Nat, IDL.Opt(IDL.Text)], [NullVariant], []),

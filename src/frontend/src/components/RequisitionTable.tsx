@@ -124,7 +124,7 @@ export function RequisitionTable({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2 items-center">
-        <div className="relative flex-1 min-w-48">
+        <div className="relative flex-1 min-w-40">
           <Search
             size={14}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
@@ -139,7 +139,7 @@ export function RequisitionTable({
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger
-            className="w-36 h-8 text-xs bg-white"
+            className="w-32 h-8 text-xs bg-white"
             data-ocid="table.status.select"
           >
             <SelectValue placeholder="Status" />
@@ -155,7 +155,7 @@ export function RequisitionTable({
         </Select>
         <Select value={priorityFilter} onValueChange={setPriorityFilter}>
           <SelectTrigger
-            className="w-36 h-8 text-xs bg-white"
+            className="w-32 h-8 text-xs bg-white"
             data-ocid="table.priority.select"
           >
             <SelectValue placeholder="Priority" />
@@ -170,7 +170,7 @@ export function RequisitionTable({
         </Select>
       </div>
 
-      <div className="bg-white rounded-[10px] border border-border shadow-card overflow-hidden">
+      <div className="bg-white rounded-[10px] border border-border shadow-card overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="bg-[#F6F8FB] hover:bg-[#F6F8FB]">

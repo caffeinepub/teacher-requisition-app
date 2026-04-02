@@ -193,7 +193,7 @@ export function TeacherDashboard({ session, onLogout }: Props) {
     >
       {activeNav === "dashboard" && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap gap-2 items-start justify-between">
             <div>
               <h1 className="text-2xl font-bold text-foreground font-display">
                 Teacher Dashboard
@@ -212,7 +212,7 @@ export function TeacherDashboard({ session, onLogout }: Props) {
             </Button>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {statCards.map((s) => (
               <div
                 key={s.label}
@@ -251,7 +251,7 @@ export function TeacherDashboard({ session, onLogout }: Props) {
 
       {activeNav === "requisitions" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap gap-2 items-start justify-between">
             <h1 className="text-2xl font-bold text-foreground font-display">
               My Requisitions
             </h1>
@@ -283,7 +283,7 @@ export function TeacherDashboard({ session, onLogout }: Props) {
               Fill in the details for your resource request
             </p>
           </div>
-          <div className="bg-white rounded-xl border border-border shadow-card p-6 space-y-4">
+          <div className="bg-white rounded-xl border border-border shadow-card p-4 sm:p-6 space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
                 <Label htmlFor="itemName" className="text-xs font-semibold">
