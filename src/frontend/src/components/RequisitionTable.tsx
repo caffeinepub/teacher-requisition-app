@@ -19,6 +19,7 @@ import {
 import {
   AlertTriangle,
   Check,
+  CheckCircle2,
   CheckSquare,
   Eye,
   PackageCheck,
@@ -257,77 +258,99 @@ export function RequisitionTable({
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((req, idx) => (
-                <TableRow
-                  key={req.id.toString()}
-                  className="border-[#EEF2F7] hover:bg-muted/30 cursor-pointer"
-                  data-ocid={`table.row.${idx + 1}`}
-                  onClick={() => onView?.(req)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") onView?.(req);
-                  }}
-                  tabIndex={0}
-                >
-                  <TableCell className="text-xs text-muted-foreground font-mono">
-                    #{req.id.toString()}
-                  </TableCell>
-                  {showTeacher && (
-                    <TableCell className="text-xs font-medium">
-                      {req.teacherName}
+              filtered.map((req, idx) => {
+                const isAlreadyReceived = "received" in req.status;
+                return (
+                  <TableRow
+                    key={req.id.toString()}
+                    className="border-[#EEF2F7] hover:bg-muted/30 cursor-pointer"
+                    data-ocid={`table.row.${idx + 1}`}
+                    onClick={() => onView?.(req)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") onView?.(req);
+                    }}
+                    tabIndex={0}
+                  >
+                    <TableCell className="text-xs text-muted-foreground font-mono">
+                      #{req.id.toString()}
                     </TableCell>
-                  )}
-                  <TableCell className="text-xs font-medium max-w-[140px] truncate">
-                    {req.itemName}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {req.quantity.toString()}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground max-w-[110px] truncate">
-                    {req.category || (
-                      <span className="italic opacity-50">—</span>
+                    {showTeacher && (
+                      <TableCell className="text-xs font-medium">
+                        {req.teacherName}
+                      </TableCell>
                     )}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground max-w-[110px] truncate">
-                    {req.location || (
-                      <span className="italic opacity-50">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <PriorityBadge priority={req.priority} />
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {req.dateNeeded}
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge status={req.status} />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div
-                      className="flex items-center justify-end gap-1"
-                      onClick={(e) => e.stopPropagation()}
-                      onKeyDown={(e) => e.stopPropagation()}
-                    >
-                      {actions.map((a) => {
-                        const def = actionDefs[a];
-                        return (
-                          <Button
-                            key={a}
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className={`h-7 px-2 text-xs gap-1 ${def.className}`}
-                            data-ocid={`table.${a}.button.${idx + 1}`}
-                            onClick={() => handleAction(a, req)}
-                          >
-                            {def.icon}
-                            {def.label}
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+                    <TableCell className="text-xs font-medium max-w-[140px] truncate">
+                      {req.itemName}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {req.quantity.toString()}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground max-w-[110px] truncate">
+                      {req.category || (
+                        <span className="italic opacity-50">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground max-w-[110px] truncate">
+                      {req.location || (
+                        <span className="italic opacity-50">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <PriorityBadge priority={req.priority} />
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {req.dateNeeded}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={req.status} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div
+                        className="flex items-center justify-end gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                      >
+                        {actions.map((a) => {
+                          // For "received" action: show a static tick if already received,
+                          // show the button only if status is completed
+                          if (a === "received") {
+                            if (isAlreadyReceived) {
+                              return (
+                                <span
+                                  key={a}
+                                  title="Received"
+                                  className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-teal-50 text-teal-600"
+                                  data-ocid={`table.received.tick.${idx + 1}`}
+                                >
+                                  <CheckCircle2 size={16} />
+                                </span>
+                              );
+                            }
+                            if (!("completed" in req.status)) {
+                              return null;
+                            }
+                          }
+                          const def = actionDefs[a];
+                          return (
+                            <Button
+                              key={a}
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className={`h-7 px-2 text-xs gap-1 ${def.className}`}
+                              data-ocid={`table.${a}.button.${idx + 1}`}
+                              onClick={() => handleAction(a, req)}
+                            >
+                              {def.icon}
+                              {def.label}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
