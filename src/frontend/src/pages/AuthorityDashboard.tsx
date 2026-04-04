@@ -31,13 +31,11 @@ import {
 } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { type Backend, ExternalBlob } from "../backend";
 import { ActionModal } from "../components/ActionModal";
 import type { ActionType } from "../components/ActionModal";
 import { Layout } from "../components/Layout";
 import { RequisitionModal } from "../components/RequisitionModal";
 import { RequisitionTable } from "../components/RequisitionTable";
-import { useActor } from "../hooks/useActor";
 import {
   useApproveRequisition,
   useGetAllRequisitions,
@@ -121,7 +119,6 @@ export function AuthorityDashboard({ session, onLogout }: Props) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { actor } = useActor();
   const { data: pending = [], isLoading: loadingPending } =
     useGetPendingRequisitions(session.sessionId);
   const { data: all = [], isLoading: loadingAll } = useGetAllRequisitions(
@@ -176,9 +173,9 @@ export function AuthorityDashboard({ session, onLogout }: Props) {
       return;
     }
     const isPdf = file.type === "application/pdf" || file.name.endsWith(".pdf");
-    const isUnder3MB = file.size <= 3 * 1024 * 1024;
-    if (!isPdf || !isUnder3MB) {
-      setPdfError("File must be a PDF and under 3MB.");
+    const isUnder5MB = file.size <= 5 * 1024 * 1024;
+    if (!isPdf || !isUnder5MB) {
+      setPdfError("File must be a PDF and under 5MB.");
       setPdfFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
@@ -217,15 +214,15 @@ export function AuthorityDashboard({ session, onLogout }: Props) {
 
     let attachmentHash: string | undefined;
 
-    if (pdfFile && actor) {
+    if (pdfFile) {
       setIsUploading(true);
       try {
-        const backend = actor as any as Backend;
-        const uploadFile = backend.getUploadFile();
         const arrayBuffer = await pdfFile.arrayBuffer();
-        const blob = ExternalBlob.fromBytes(new Uint8Array(arrayBuffer));
-        const hashBytes = await uploadFile(blob);
-        attachmentHash = new TextDecoder().decode(hashBytes);
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = "";
+        for (let i = 0; i < bytes.length; i++)
+          binary += String.fromCharCode(bytes[i]);
+        attachmentHash = `data:application/pdf;base64,${btoa(binary)}`;
       } catch {
         toast.error("Failed to upload attachment.");
         setIsUploading(false);
@@ -650,7 +647,7 @@ export function AuthorityDashboard({ session, onLogout }: Props) {
                   </span>
                 </Label>
                 <p className="text-[11px] text-muted-foreground mt-0.5 mb-2">
-                  PDF only &middot; Max 3MB
+                  PDF only &middot; Max 5MB
                 </p>
 
                 {!pdfFile ? (
@@ -666,7 +663,7 @@ export function AuthorityDashboard({ session, onLogout }: Props) {
                     <span className="text-xs font-medium">
                       Click to browse PDF
                     </span>
-                    <span className="text-[11px]">PDF files up to 3MB</span>
+                    <span className="text-[11px]">PDF files up to 5MB</span>
                   </button>
                 ) : (
                   <div className="w-full border border-indigo-200 bg-indigo-50 rounded-xl p-3 flex items-center gap-3">

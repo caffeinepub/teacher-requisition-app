@@ -50,13 +50,24 @@ export function RequisitionModal({ requisition, open, onClose }: Props) {
   if (!requisition) return null;
 
   async function handleViewAttachment() {
-    if (!requisition || requisition.attachmentHash.length === 0 || !actor)
+    if (!requisition || requisition.attachmentHash.length === 0) return;
+    const value = requisition.attachmentHash[0];
+    if (value.startsWith("data:")) {
+      // Base64-encoded PDF stored directly
+      const link = document.createElement("a");
+      link.href = value;
+      link.download = "attachment.pdf";
+      link.target = "_blank";
+      link.click();
       return;
+    }
+    // Legacy blob-storage hash (may not work if storage is unavailable)
+    if (!actor) return;
     setIsLoadingAttachment(true);
     try {
       const backend = actor as any as Backend;
       const downloadFile = backend.getDownloadFile();
-      const hashBytes = new TextEncoder().encode(requisition.attachmentHash[0]);
+      const hashBytes = new TextEncoder().encode(value);
       const externalBlob = await downloadFile(hashBytes);
       const url = externalBlob.getDirectURL();
       window.open(url, "_blank");
