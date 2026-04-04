@@ -23,7 +23,8 @@ export type Status =
   | { approved: null }
   | { rejected: null }
   | { completed: null }
-  | { notFulfilled: null };
+  | { notFulfilled: null }
+  | { received: null };
 
 export interface HistoryEntry {
   actorEmail: string;
@@ -47,12 +48,19 @@ export interface RequisitionView {
   history: HistoryEntry[];
   category: string;
   location: string;
+  attachmentHash: [] | [string];
+  assignedAuthorityEmail: [] | [string];
 }
 
 export interface UserView {
   email: string;
   name: string;
   role: AppRole;
+}
+
+export interface AuthorityView {
+  email: string;
+  name: string;
 }
 
 export interface LoginResult {
@@ -69,13 +77,15 @@ export interface _SERVICE {
   updateUser: ActorMethod<[string, string, [] | [string], [] | [string], [] | [AppRole]], { ok: null } | { err: string }>;
   deleteUser: ActorMethod<[string, string], { ok: null } | { err: string }>;
   listUsers: ActorMethod<[string], { ok: UserView[] } | { err: string }>;
-  createRequisition: ActorMethod<[string, string, string, bigint, Priority, string, string, string], { ok: bigint } | { err: string }>;
+  getAuthorities: ActorMethod<[string], { ok: AuthorityView[] } | { err: string }>;
+  createRequisition: ActorMethod<[string, string, string, bigint, Priority, string, string, string, [] | [string], [] | [string]], { ok: bigint } | { err: string }>;
   getMyRequisitions: ActorMethod<[string], { ok: RequisitionView[] } | { err: string }>;
   getAllRequisitions: ActorMethod<[string], { ok: RequisitionView[] } | { err: string }>;
   approveRequisition: ActorMethod<[string, bigint, [] | [string]], { ok: null } | { err: string }>;
   rejectRequisition: ActorMethod<[string, bigint, string], { ok: null } | { err: string }>;
   fulfillRequisition: ActorMethod<[string, bigint], { ok: null } | { err: string }>;
   markNotFulfilled: ActorMethod<[string, bigint, string], { ok: null } | { err: string }>;
+  markReceived: ActorMethod<[string, bigint], { ok: null } | { err: string }>;
 }
 
 export declare const idlService: IDL.ServiceClass;

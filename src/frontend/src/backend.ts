@@ -4,7 +4,7 @@
 
 import { Actor, HttpAgent, type HttpAgentOptions, type ActorConfig, type Agent, type ActorSubclass } from "@icp-sdk/core/agent";
 import type { Principal } from "@icp-sdk/core/principal";
-import { idlFactory, type _SERVICE, type AppRole, type LoginResult, type UserView, type RequisitionView, type Priority, type Status } from "./declarations/backend.did";
+import { idlFactory, type _SERVICE, type AppRole, type LoginResult, type UserView, type AuthorityView, type RequisitionView, type Priority, type Status } from "./declarations/backend.did";
 export interface Some<T> {
     __kind__: "Some";
     value: T;
@@ -61,13 +61,15 @@ export interface backendInterface {
     updateUser(sessionId: string, email: string, newPassword: [] | [string], newName: [] | [string], newRole: [] | [AppRole]): Promise<{ ok: null } | { err: string }>;
     deleteUser(sessionId: string, email: string): Promise<{ ok: null } | { err: string }>;
     listUsers(sessionId: string): Promise<{ ok: UserView[] } | { err: string }>;
-    createRequisition(sessionId: string, itemName: string, description: string, quantity: bigint, priority: Priority, dateNeeded: string): Promise<{ ok: bigint } | { err: string }>;
+    getAuthorities(sessionId: string): Promise<{ ok: AuthorityView[] } | { err: string }>;
+    createRequisition(sessionId: string, itemName: string, description: string, quantity: bigint, priority: Priority, dateNeeded: string, category: string, location: string, attachmentHash: [] | [string], assignedAuthorityEmail: [] | [string]): Promise<{ ok: bigint } | { err: string }>;
     getMyRequisitions(sessionId: string): Promise<{ ok: RequisitionView[] } | { err: string }>;
     getAllRequisitions(sessionId: string): Promise<{ ok: RequisitionView[] } | { err: string }>;
     approveRequisition(sessionId: string, id: bigint, remarks: [] | [string]): Promise<{ ok: null } | { err: string }>;
     rejectRequisition(sessionId: string, id: bigint, remarks: string): Promise<{ ok: null } | { err: string }>;
     fulfillRequisition(sessionId: string, id: bigint): Promise<{ ok: null } | { err: string }>;
     markNotFulfilled(sessionId: string, id: bigint, remarks: string): Promise<{ ok: null } | { err: string }>;
+    markReceived(sessionId: string, id: bigint): Promise<{ ok: null } | { err: string }>;
 }
 
 export class Backend implements backendInterface {
@@ -94,8 +96,11 @@ export class Backend implements backendInterface {
     async listUsers(sessionId: string) {
         return this.actor.listUsers(sessionId);
     }
-    async createRequisition(sessionId: string, itemName: string, description: string, quantity: bigint, priority: Priority, dateNeeded: string) {
-        return this.actor.createRequisition(sessionId, itemName, description, quantity, priority, dateNeeded);
+    async getAuthorities(sessionId: string) {
+        return this.actor.getAuthorities(sessionId);
+    }
+    async createRequisition(sessionId: string, itemName: string, description: string, quantity: bigint, priority: Priority, dateNeeded: string, category: string, location: string, attachmentHash: [] | [string], assignedAuthorityEmail: [] | [string]) {
+        return this.actor.createRequisition(sessionId, itemName, description, quantity, priority, dateNeeded, category, location, attachmentHash, assignedAuthorityEmail);
     }
     async getMyRequisitions(sessionId: string) {
         return this.actor.getMyRequisitions(sessionId);
@@ -114,6 +119,16 @@ export class Backend implements backendInterface {
     }
     async markNotFulfilled(sessionId: string, id: bigint, remarks: string) {
         return this.actor.markNotFulfilled(sessionId, id, remarks);
+    }
+    async markReceived(sessionId: string, id: bigint) {
+        return this.actor.markReceived(sessionId, id);
+    }
+
+    getUploadFile() {
+        return this._uploadFile;
+    }
+    getDownloadFile() {
+        return this._downloadFile;
     }
 }
 

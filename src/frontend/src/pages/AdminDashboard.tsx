@@ -1,5 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle2, PackageCheck, PackageX } from "lucide-react";
+import { Bell, CheckCircle2, PackageCheck, PackageX } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ActionModal } from "../components/ActionModal";
@@ -63,6 +63,7 @@ export function AdminDashboard({ session, onLogout }: Props) {
   const totalNotFulfilled = all.filter(
     (r) => "notFulfilled" in r.status,
   ).length;
+  const totalReceived = all.filter((r) => "received" in r.status).length;
 
   const statCards = [
     {
@@ -92,6 +93,15 @@ export function AdminDashboard({ session, onLogout }: Props) {
       borderColor: "border-l-slate-400",
       textColor: "text-slate-600",
     },
+    {
+      label: "Confirmed Received",
+      value: totalReceived,
+      icon: <Bell size={20} />,
+      iconBg: "bg-teal-100",
+      iconColor: "text-teal-600",
+      borderColor: "border-l-teal-500",
+      textColor: "text-teal-700",
+    },
   ];
 
   return (
@@ -111,7 +121,7 @@ export function AdminDashboard({ session, onLogout }: Props) {
               Fulfill approved requisitions
             </p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {statCards.map((s) => (
               <div
                 key={s.label}

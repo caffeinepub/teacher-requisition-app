@@ -20,19 +20,26 @@ import {
   Laptop,
   Loader2,
   Package,
+  Paperclip,
   PlusCircle,
+  Shield,
   ShieldAlert,
   Sparkles,
   Trash2,
   Wrench,
+  X,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
+import { type Backend, ExternalBlob } from "../backend";
 import { Layout } from "../components/Layout";
 import { RequisitionModal } from "../components/RequisitionModal";
 import { RequisitionTable } from "../components/RequisitionTable";
+import { useActor } from "../hooks/useActor";
 import {
+  useGetAuthorities,
   useGetMyRequisitions,
+  useMarkReceived,
   useSubmitRequisition,
 } from "../hooks/useQueries";
 import type { SessionData } from "../hooks/useSession";
@@ -84,6 +91,12 @@ const CATEGORIES = [
   { value: "Other", label: "Other", icon: Flame, color: "text-gray-500" },
 ];
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function TeacherDashboard({ session, onLogout }: Props) {
   const [activeNav, setActiveNav] = useState("dashboard");
   const [selectedReq, setSelectedReq] = useState<RequisitionView | null>(null);
@@ -95,19 +108,66 @@ export function TeacherDashboard({ session, onLogout }: Props) {
     quantity: "1",
     priority: "medium",
     dateNeeded: "",
+    assignedAuthority: "",
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfError, setPdfError] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const { actor } = useActor();
   const { data: requisitions = [], isLoading } = useGetMyRequisitions(
     session.sessionId,
   );
+  const { data: authorities = [], isLoading: isLoadingAuthorities } =
+    useGetAuthorities(session.sessionId);
   const { mutateAsync: submitRequisition, isPending: isSubmitting } =
     useSubmitRequisition(session.sessionId);
+  const { mutateAsync: markReceived } = useMarkReceived(session.sessionId);
+
+  async function handleMarkReceived(req: RequisitionView) {
+    try {
+      await markReceived({ id: req.id });
+      toast.success(
+        "Requisition marked as received! Authority and Admin Staff have been notified.",
+      );
+    } catch {
+      toast.error("Failed to mark as received.");
+    }
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    if (!file) {
+      setPdfFile(null);
+      setPdfError("");
+      return;
+    }
+    const isPdf = file.type === "application/pdf" || file.name.endsWith(".pdf");
+    const isUnder3MB = file.size <= 3 * 1024 * 1024;
+    if (!isPdf || !isUnder3MB) {
+      setPdfError("File must be a PDF and under 3MB.");
+      setPdfFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    setPdfFile(file);
+    setPdfError("");
+  }
+
+  function clearFile() {
+    setPdfFile(null);
+    setPdfError("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
 
   function validateForm() {
     const errors: Record<string, string> = {};
     if (!form.itemName.trim()) errors.itemName = "Item name is required.";
     if (!form.category) errors.category = "Category is required.";
+    if (!form.assignedAuthority)
+      errors.assignedAuthority = "Please select an authority to submit to.";
     if (!form.location.trim()) errors.location = "Location is required.";
     if (!form.description.trim())
       errors.description = "Description is required.";
@@ -125,6 +185,26 @@ export function TeacherDashboard({ session, onLogout }: Props) {
       return;
     }
     setFormErrors({});
+
+    let attachmentHash: string | undefined;
+
+    if (pdfFile && actor) {
+      setIsUploading(true);
+      try {
+        const backend = actor as any as Backend;
+        const uploadFile = backend.getUploadFile();
+        const arrayBuffer = await pdfFile.arrayBuffer();
+        const blob = ExternalBlob.fromBytes(new Uint8Array(arrayBuffer));
+        const hashBytes = await uploadFile(blob);
+        attachmentHash = new TextDecoder().decode(hashBytes);
+      } catch {
+        toast.error("Failed to upload attachment.");
+        setIsUploading(false);
+        return;
+      }
+      setIsUploading(false);
+    }
+
     try {
       await submitRequisition({
         itemName: form.itemName.trim(),
@@ -134,6 +214,8 @@ export function TeacherDashboard({ session, onLogout }: Props) {
         dateNeeded: form.dateNeeded,
         category: form.category,
         location: form.location,
+        attachmentHash,
+        assignedAuthorityEmail: form.assignedAuthority,
       });
       toast.success("Requisition submitted successfully!");
       setForm({
@@ -144,7 +226,9 @@ export function TeacherDashboard({ session, onLogout }: Props) {
         quantity: "1",
         priority: "medium",
         dateNeeded: "",
+        assignedAuthority: "",
       });
+      clearFile();
       setActiveNav("requisitions");
     } catch {
       toast.error("Failed to submit requisition.");
@@ -183,6 +267,8 @@ export function TeacherDashboard({ session, onLogout }: Props) {
       textColor: "text-emerald-700",
     },
   ];
+
+  const isBusy = isSubmitting || isUploading;
 
   return (
     <Layout
@@ -242,8 +328,11 @@ export function TeacherDashboard({ session, onLogout }: Props) {
             <RequisitionTable
               data={requisitions.slice(0, 5)}
               isLoading={isLoading}
-              actions={["view"]}
+              actions={["view", "received"]}
               onView={setSelectedReq}
+              onReceived={(r) => {
+                if ("completed" in r.status) handleMarkReceived(r);
+              }}
             />
           </div>
         </div>
@@ -267,8 +356,11 @@ export function TeacherDashboard({ session, onLogout }: Props) {
           <RequisitionTable
             data={requisitions}
             isLoading={isLoading}
-            actions={["view"]}
+            actions={["view", "received"]}
             onView={setSelectedReq}
+            onReceived={(r) => {
+              if ("completed" in r.status) handleMarkReceived(r);
+            }}
           />
         </div>
       )}
@@ -308,6 +400,7 @@ export function TeacherDashboard({ session, onLogout }: Props) {
                   </p>
                 )}
               </div>
+
               <div className="col-span-2">
                 <Label htmlFor="category" className="text-xs font-semibold">
                   Category <span className="text-destructive">*</span>
@@ -346,6 +439,84 @@ export function TeacherDashboard({ session, onLogout }: Props) {
                   </p>
                 )}
               </div>
+
+              {/* Submit To — Authority Selector */}
+              <div className="col-span-2">
+                <Label
+                  htmlFor="assignedAuthority"
+                  className="text-xs font-semibold flex items-center gap-1.5"
+                >
+                  <Shield size={12} className="text-indigo-500" />
+                  Submit To <span className="text-destructive">*</span>
+                </Label>
+                {!isLoadingAuthorities && authorities.length === 0 ? (
+                  <>
+                    <Select disabled>
+                      <SelectTrigger
+                        id="assignedAuthority"
+                        className="mt-1"
+                        data-ocid="new_req.authority.select"
+                      >
+                        <SelectValue placeholder="No authorities available" />
+                      </SelectTrigger>
+                      <SelectContent />
+                    </Select>
+                    <p className="text-[11px] text-amber-600 mt-1 flex items-center gap-1">
+                      <AlertTriangle size={11} />
+                      No authority users found. Contact your administrator.
+                    </p>
+                  </>
+                ) : (
+                  <Select
+                    value={form.assignedAuthority}
+                    onValueChange={(v) =>
+                      setForm((p) => ({ ...p, assignedAuthority: v }))
+                    }
+                    disabled={isLoadingAuthorities}
+                  >
+                    <SelectTrigger
+                      id="assignedAuthority"
+                      className="mt-1"
+                      data-ocid="new_req.authority.select"
+                    >
+                      <SelectValue
+                        placeholder={
+                          isLoadingAuthorities
+                            ? "Loading..."
+                            : "Select authority"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {authorities.map((auth) => (
+                        <SelectItem key={auth.email} value={auth.email}>
+                          <span className="flex items-center gap-2">
+                            <Shield
+                              size={13}
+                              className="text-indigo-500 flex-shrink-0"
+                            />
+                            <span>
+                              {auth.name}{" "}
+                              <span className="text-muted-foreground text-xs">
+                                ({auth.email})
+                              </span>
+                            </span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {formErrors.assignedAuthority && (
+                  <p
+                    className="text-xs text-destructive mt-1"
+                    data-ocid="new_req.authority_error"
+                  >
+                    {formErrors.assignedAuthority}
+                  </p>
+                )}
+              </div>
+
               <div className="col-span-2">
                 <Label htmlFor="location" className="text-xs font-semibold">
                   Location <span className="text-destructive">*</span>
@@ -369,6 +540,7 @@ export function TeacherDashboard({ session, onLogout }: Props) {
                   </p>
                 )}
               </div>
+
               <div className="col-span-2">
                 <Label htmlFor="description" className="text-xs font-semibold">
                   Description / Purpose{" "}
@@ -394,6 +566,7 @@ export function TeacherDashboard({ session, onLogout }: Props) {
                   </p>
                 )}
               </div>
+
               <div>
                 <Label htmlFor="quantity" className="text-xs font-semibold">
                   Quantity <span className="text-destructive">*</span>
@@ -418,6 +591,7 @@ export function TeacherDashboard({ session, onLogout }: Props) {
                   </p>
                 )}
               </div>
+
               <div>
                 <Label htmlFor="priority" className="text-xs font-semibold">
                   Priority
@@ -461,6 +635,7 @@ export function TeacherDashboard({ session, onLogout }: Props) {
                   </SelectContent>
                 </Select>
               </div>
+
               <div className="col-span-2">
                 <Label htmlFor="dateNeeded" className="text-xs font-semibold">
                   Date Needed <span className="text-destructive">*</span>
@@ -484,7 +659,78 @@ export function TeacherDashboard({ session, onLogout }: Props) {
                   </p>
                 )}
               </div>
+
+              {/* PDF Upload Section */}
+              <div className="col-span-2">
+                <Label className="text-xs font-semibold">
+                  Supporting Document{" "}
+                  <span className="text-muted-foreground font-normal">
+                    (Optional)
+                  </span>
+                </Label>
+                <p className="text-[11px] text-muted-foreground mt-0.5 mb-2">
+                  PDF only &middot; Max 3MB
+                </p>
+
+                {!pdfFile ? (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full border-2 border-dashed border-border rounded-xl p-5 flex flex-col items-center gap-2 text-muted-foreground hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors cursor-pointer"
+                    data-ocid="new_req.upload_button"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+                      <Paperclip size={18} className="text-indigo-500" />
+                    </div>
+                    <span className="text-xs font-medium">
+                      Click to browse PDF
+                    </span>
+                    <span className="text-[11px]">PDF files up to 3MB</span>
+                  </button>
+                ) : (
+                  <div className="w-full border border-indigo-200 bg-indigo-50 rounded-xl p-3 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                      <FileText size={16} className="text-indigo-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-foreground truncate">
+                        {pdfFile.name}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {formatFileSize(pdfFile.size)}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={clearFile}
+                      className="w-6 h-6 rounded-full bg-white border border-border flex items-center justify-center hover:bg-red-50 hover:border-red-300 transition-colors flex-shrink-0"
+                      data-ocid="new_req.clear_upload_button"
+                      aria-label="Remove file"
+                    >
+                      <X size={12} className="text-muted-foreground" />
+                    </button>
+                  </div>
+                )}
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+
+                {pdfError && (
+                  <p
+                    className="text-xs text-destructive mt-1"
+                    data-ocid="new_req.upload_error"
+                  >
+                    {pdfError}
+                  </p>
+                )}
+              </div>
             </div>
+
             <div className="flex gap-3 pt-2">
               <Button
                 type="button"
@@ -498,13 +744,15 @@ export function TeacherDashboard({ session, onLogout }: Props) {
                 type="button"
                 className="flex-1 sidebar-gradient text-white hover:opacity-90 shadow-md"
                 onClick={handleSubmit}
-                disabled={isSubmitting}
+                disabled={isBusy}
                 data-ocid="new_req.submit_button"
               >
-                {isSubmitting && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                Submit Requisition
+                {isBusy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isUploading
+                  ? "Uploading..."
+                  : isSubmitting
+                    ? "Submitting..."
+                    : "Submit Requisition"}
               </Button>
             </div>
           </div>

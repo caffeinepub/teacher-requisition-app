@@ -15,7 +15,8 @@ export type Status =
   | { approved: null }
   | { rejected: null }
   | { completed: null }
-  | { notFulfilled: null };
+  | { notFulfilled: null }
+  | { received: null };
 
 export interface HistoryEntry {
   actorEmail: string;
@@ -39,12 +40,19 @@ export interface RequisitionView {
   history: HistoryEntry[];
   category: string;
   location: string;
+  attachmentHash: [] | [string];
+  assignedAuthorityEmail: [] | [string];
 }
 
 export interface UserView {
   email: string;
   name: string;
   role: AppRole;
+}
+
+export interface AuthorityView {
+  email: string;
+  name: string;
 }
 
 export function getRoleName(role: AppRole): string {
@@ -61,6 +69,7 @@ export function getStatusKey(status: Status): string {
   if ("rejected" in status) return "rejected";
   if ("completed" in status) return "completed";
   if ("notFulfilled" in status) return "notFulfilled";
+  if ("received" in status) return "received";
   return "pending";
 }
 

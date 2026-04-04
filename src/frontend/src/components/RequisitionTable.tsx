@@ -21,6 +21,7 @@ import {
   Check,
   CheckSquare,
   Eye,
+  PackageCheck,
   Search,
   X,
 } from "lucide-react";
@@ -31,7 +32,13 @@ import { PriorityBadge } from "./PriorityBadge";
 import { StatusBadge } from "./StatusBadge";
 
 type ActionConfig = {
-  type: "view" | "approve" | "reject" | "complete" | "notFulfilled";
+  type:
+    | "view"
+    | "approve"
+    | "reject"
+    | "complete"
+    | "notFulfilled"
+    | "received";
   label: string;
   icon: React.ReactNode;
   className: string;
@@ -41,12 +48,20 @@ interface Props {
   data: RequisitionView[];
   isLoading: boolean;
   showTeacher?: boolean;
-  actions?: ("view" | "approve" | "reject" | "complete" | "notFulfilled")[];
+  actions?: (
+    | "view"
+    | "approve"
+    | "reject"
+    | "complete"
+    | "notFulfilled"
+    | "received"
+  )[];
   onView?: (req: RequisitionView) => void;
   onApprove?: (req: RequisitionView) => void;
   onReject?: (req: RequisitionView) => void;
   onComplete?: (req: RequisitionView) => void;
   onNotFulfilled?: (req: RequisitionView) => void;
+  onReceived?: (req: RequisitionView) => void;
 }
 
 const actionDefs: Record<string, ActionConfig> = {
@@ -80,6 +95,12 @@ const actionDefs: Record<string, ActionConfig> = {
     icon: <AlertTriangle size={14} />,
     className: "text-gray-600 hover:text-gray-700 hover:bg-gray-50",
   },
+  received: {
+    type: "received",
+    label: "Mark Received",
+    icon: <PackageCheck size={14} />,
+    className: "text-teal-600 hover:text-teal-700 hover:bg-teal-50",
+  },
 };
 
 export function RequisitionTable({
@@ -92,6 +113,7 @@ export function RequisitionTable({
   onReject,
   onComplete,
   onNotFulfilled,
+  onReceived,
 }: Props) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -115,6 +137,7 @@ export function RequisitionTable({
     if (type === "reject") onReject?.(req);
     if (type === "complete") onComplete?.(req);
     if (type === "notFulfilled") onNotFulfilled?.(req);
+    if (type === "received") onReceived?.(req);
   }
 
   // base cols: ID, Item, Qty, Category, Location, Priority, Date Needed, Status, Actions = 9
@@ -151,6 +174,7 @@ export function RequisitionTable({
             <SelectItem value="rejected">Rejected</SelectItem>
             <SelectItem value="completed">Completed</SelectItem>
             <SelectItem value="notFulfilled">Not Fulfilled</SelectItem>
+            <SelectItem value="received">Received</SelectItem>
           </SelectContent>
         </Select>
         <Select value={priorityFilter} onValueChange={setPriorityFilter}>

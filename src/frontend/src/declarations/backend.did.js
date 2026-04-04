@@ -24,6 +24,7 @@ const Status = IDL.Variant({
   rejected: IDL.Null,
   completed: IDL.Null,
   notFulfilled: IDL.Null,
+  received: IDL.Null,
 });
 
 const HistoryEntry = IDL.Record({
@@ -48,12 +49,19 @@ const RequisitionView = IDL.Record({
   history: IDL.Vec(HistoryEntry),
   category: IDL.Text,
   location: IDL.Text,
+  attachmentHash: IDL.Opt(IDL.Text),
+  assignedAuthorityEmail: IDL.Opt(IDL.Text),
 });
 
 const UserView = IDL.Record({
   email: IDL.Text,
   name: IDL.Text,
   role: AppRole,
+});
+
+const AuthorityView = IDL.Record({
+  email: IDL.Text,
+  name: IDL.Text,
 });
 
 const LoginResult = IDL.Record({
@@ -72,6 +80,7 @@ const LoginVariant = IDL.Variant({ ok: LoginResult, err: IDL.Text });
 const NullVariant = IDL.Variant({ ok: IDL.Null, err: IDL.Text });
 const NatVariant = IDL.Variant({ ok: IDL.Nat, err: IDL.Text });
 const UsersVariant = IDL.Variant({ ok: IDL.Vec(UserView), err: IDL.Text });
+const AuthoritiesVariant = IDL.Variant({ ok: IDL.Vec(AuthorityView), err: IDL.Text });
 const RequisitionsVariant = IDL.Variant({ ok: IDL.Vec(RequisitionView), err: IDL.Text });
 
 export const idlService = IDL.Service({
@@ -83,14 +92,16 @@ export const idlService = IDL.Service({
   updateUser: IDL.Func([IDL.Text, IDL.Text, IDL.Opt(IDL.Text), IDL.Opt(IDL.Text), IDL.Opt(AppRole)], [NullVariant], []),
   deleteUser: IDL.Func([IDL.Text, IDL.Text], [NullVariant], []),
   listUsers: IDL.Func([IDL.Text], [UsersVariant], ['query']),
+  getAuthorities: IDL.Func([IDL.Text], [AuthoritiesVariant], ['query']),
 
-  createRequisition: IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Nat, Priority, IDL.Text, IDL.Text, IDL.Text], [NatVariant], []),
+  createRequisition: IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Nat, Priority, IDL.Text, IDL.Text, IDL.Text, IDL.Opt(IDL.Text), IDL.Opt(IDL.Text)], [NatVariant], []),
   getMyRequisitions: IDL.Func([IDL.Text], [RequisitionsVariant], ['query']),
   getAllRequisitions: IDL.Func([IDL.Text], [RequisitionsVariant], ['query']),
   approveRequisition: IDL.Func([IDL.Text, IDL.Nat, IDL.Opt(IDL.Text)], [NullVariant], []),
   rejectRequisition: IDL.Func([IDL.Text, IDL.Nat, IDL.Text], [NullVariant], []),
   fulfillRequisition: IDL.Func([IDL.Text, IDL.Nat], [NullVariant], []),
   markNotFulfilled: IDL.Func([IDL.Text, IDL.Nat, IDL.Text], [NullVariant], []),
+  markReceived: IDL.Func([IDL.Text, IDL.Nat], [NullVariant], []),
 });
 
 export const idlInitArgs = [];
@@ -114,6 +125,7 @@ export const idlFactory = ({ IDL }) => {
     rejected: IDL.Null,
     completed: IDL.Null,
     notFulfilled: IDL.Null,
+    received: IDL.Null,
   });
   const HistoryEntry = IDL.Record({
     actorEmail: IDL.Text,
@@ -136,11 +148,17 @@ export const idlFactory = ({ IDL }) => {
     history: IDL.Vec(HistoryEntry),
     category: IDL.Text,
     location: IDL.Text,
+    attachmentHash: IDL.Opt(IDL.Text),
+    assignedAuthorityEmail: IDL.Opt(IDL.Text),
   });
   const UserView = IDL.Record({
     email: IDL.Text,
     name: IDL.Text,
     role: AppRole,
+  });
+  const AuthorityView = IDL.Record({
+    email: IDL.Text,
+    name: IDL.Text,
   });
   const LoginResult = IDL.Record({
     sessionId: IDL.Text,
@@ -156,6 +174,7 @@ export const idlFactory = ({ IDL }) => {
   const NullVariant = IDL.Variant({ ok: IDL.Null, err: IDL.Text });
   const NatVariant = IDL.Variant({ ok: IDL.Nat, err: IDL.Text });
   const UsersVariant = IDL.Variant({ ok: IDL.Vec(UserView), err: IDL.Text });
+  const AuthoritiesVariant = IDL.Variant({ ok: IDL.Vec(AuthorityView), err: IDL.Text });
   const RequisitionsVariant = IDL.Variant({ ok: IDL.Vec(RequisitionView), err: IDL.Text });
   return IDL.Service({
     login: IDL.Func([IDL.Text, IDL.Text], [LoginVariant], []),
@@ -165,13 +184,15 @@ export const idlFactory = ({ IDL }) => {
     updateUser: IDL.Func([IDL.Text, IDL.Text, IDL.Opt(IDL.Text), IDL.Opt(IDL.Text), IDL.Opt(AppRole)], [NullVariant], []),
     deleteUser: IDL.Func([IDL.Text, IDL.Text], [NullVariant], []),
     listUsers: IDL.Func([IDL.Text], [UsersVariant], ['query']),
-    createRequisition: IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Nat, Priority, IDL.Text, IDL.Text, IDL.Text], [NatVariant], []),
+    getAuthorities: IDL.Func([IDL.Text], [AuthoritiesVariant], ['query']),
+    createRequisition: IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Nat, Priority, IDL.Text, IDL.Text, IDL.Text, IDL.Opt(IDL.Text), IDL.Opt(IDL.Text)], [NatVariant], []),
     getMyRequisitions: IDL.Func([IDL.Text], [RequisitionsVariant], ['query']),
     getAllRequisitions: IDL.Func([IDL.Text], [RequisitionsVariant], ['query']),
     approveRequisition: IDL.Func([IDL.Text, IDL.Nat, IDL.Opt(IDL.Text)], [NullVariant], []),
     rejectRequisition: IDL.Func([IDL.Text, IDL.Nat, IDL.Text], [NullVariant], []),
     fulfillRequisition: IDL.Func([IDL.Text, IDL.Nat], [NullVariant], []),
     markNotFulfilled: IDL.Func([IDL.Text, IDL.Nat, IDL.Text], [NullVariant], []),
+    markReceived: IDL.Func([IDL.Text, IDL.Nat], [NullVariant], []),
   });
 };
 

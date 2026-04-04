@@ -12,6 +12,7 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   rejected: { label: "REJECTED", className: "status-rejected" },
   completed: { label: "COMPLETED", className: "status-completed" },
   notFulfilled: { label: "NOT FULFILLED", className: "status-notfulfilled" },
+  received: { label: "RECEIVED", className: "status-received" },
 };
 
 export function StatusBadge({ status, className = "" }: Props) {

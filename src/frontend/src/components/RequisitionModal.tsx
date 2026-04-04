@@ -10,10 +10,17 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
+  ExternalLink,
+  FileText,
+  Loader2,
   Package,
+  Paperclip,
+  Shield,
   XCircle,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
+import type { Backend } from "../backend";
+import { useActor } from "../hooks/useActor";
 import type { RequisitionView } from "../types";
 import { formatTimestamp, getStatusKey } from "../types";
 import { PriorityBadge } from "./PriorityBadge";
@@ -37,7 +44,34 @@ function StatusIcon({ statusKey }: { statusKey: string }): ReactNode {
 }
 
 export function RequisitionModal({ requisition, open, onClose }: Props) {
+  const { actor } = useActor();
+  const [isLoadingAttachment, setIsLoadingAttachment] = useState(false);
+
   if (!requisition) return null;
+
+  async function handleViewAttachment() {
+    if (!requisition || requisition.attachmentHash.length === 0 || !actor)
+      return;
+    setIsLoadingAttachment(true);
+    try {
+      const backend = actor as any as Backend;
+      const downloadFile = backend.getDownloadFile();
+      const hashBytes = new TextEncoder().encode(requisition.attachmentHash[0]);
+      const externalBlob = await downloadFile(hashBytes);
+      const url = externalBlob.getDirectURL();
+      window.open(url, "_blank");
+    } catch {
+      // silently ignore
+    } finally {
+      setIsLoadingAttachment(false);
+    }
+  }
+
+  const hasAttachment = requisition.attachmentHash.length > 0;
+  const assignedAuthorityEmail =
+    requisition.assignedAuthorityEmail.length > 0
+      ? requisition.assignedAuthorityEmail[0]
+      : null;
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -96,6 +130,25 @@ export function RequisitionModal({ requisition, open, onClose }: Props) {
                   {requisition.teacherName}
                 </p>
               </div>
+              <div className="col-span-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1 flex items-center gap-1">
+                  <Shield size={10} className="text-indigo-500" />
+                  Assigned Authority
+                </p>
+                {assignedAuthorityEmail ? (
+                  <p className="text-sm text-foreground flex items-center gap-1.5">
+                    <Shield
+                      size={12}
+                      className="text-indigo-500 flex-shrink-0"
+                    />
+                    {assignedAuthorityEmail}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">
+                    Not specified
+                  </p>
+                )}
+              </div>
             </div>
 
             <div>
@@ -115,6 +168,37 @@ export function RequisitionModal({ requisition, open, onClose }: Props) {
                 {formatTimestamp(requisition.createdAt)}
               </p>
             </div>
+
+            {hasAttachment && (
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                  Attachment
+                </p>
+                <button
+                  type="button"
+                  onClick={handleViewAttachment}
+                  disabled={isLoadingAttachment}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 text-xs font-medium hover:bg-indigo-100 hover:border-indigo-300 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  data-ocid="requisition.attachment.button"
+                >
+                  {isLoadingAttachment ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <Paperclip size={13} />
+                  )}
+                  {isLoadingAttachment ? "Opening..." : "View Attachment"}
+                  {!isLoadingAttachment && (
+                    <ExternalLink size={11} className="opacity-60" />
+                  )}
+                </button>
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <FileText size={11} className="text-muted-foreground" />
+                  <span className="text-[11px] text-muted-foreground">
+                    PDF document attached
+                  </span>
+                </div>
+              </div>
+            )}
 
             <Separator />
 

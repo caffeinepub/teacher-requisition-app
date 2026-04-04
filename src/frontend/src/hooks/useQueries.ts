@@ -1,5 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { AppRole, Priority, RequisitionView, UserView } from "../types";
+import type {
+  AppRole,
+  AuthorityView,
+  Priority,
+  RequisitionView,
+  UserView,
+} from "../types";
 import { useActor } from "./useActor";
 
 async function unwrap<T>(
@@ -76,6 +82,18 @@ export function useGetAllUsers(sessionId: string) {
   });
 }
 
+export function useGetAuthorities(sessionId: string) {
+  const { actor, isFetching } = useActor();
+  return useQuery<AuthorityView[]>({
+    queryKey: ["authorities", sessionId],
+    queryFn: async () => {
+      if (!actor) return [];
+      return unwrap((actor as any).getAuthorities(sessionId));
+    },
+    enabled: !!actor && !isFetching && !!sessionId,
+  });
+}
+
 export function useSubmitRequisition(sessionId: string) {
   const { actor } = useActor();
   const qc = useQueryClient();
@@ -88,8 +106,16 @@ export function useSubmitRequisition(sessionId: string) {
       dateNeeded: string;
       category: string;
       location: string;
+      attachmentHash?: string;
+      assignedAuthorityEmail?: string;
     }) => {
       if (!actor) throw new Error("No actor");
+      const attachmentHashOpt: [] | [string] = data.attachmentHash
+        ? [data.attachmentHash]
+        : [];
+      const assignedAuthorityOpt: [] | [string] = data.assignedAuthorityEmail
+        ? [data.assignedAuthorityEmail]
+        : [];
       return unwrap(
         (actor as any).createRequisition(
           sessionId,
@@ -100,6 +126,8 @@ export function useSubmitRequisition(sessionId: string) {
           data.dateNeeded,
           data.category,
           data.location,
+          attachmentHashOpt,
+          assignedAuthorityOpt,
         ),
       );
     },
@@ -166,6 +194,22 @@ export function useMarkNotFulfilled(sessionId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["approvedRequisitions", sessionId] });
       qc.invalidateQueries({ queryKey: ["allRequisitions", sessionId] });
+    },
+  });
+}
+
+export function useMarkReceived(sessionId: string) {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id }: { id: bigint }) => {
+      if (!actor) throw new Error("No actor");
+      return unwrap((actor as any).markReceived(sessionId, id));
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["myRequisitions", sessionId] });
+      qc.invalidateQueries({ queryKey: ["allRequisitions", sessionId] });
+      qc.invalidateQueries({ queryKey: ["approvedRequisitions", sessionId] });
     },
   });
 }

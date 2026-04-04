@@ -15,7 +15,8 @@ export type Status =
   | { approved: null }
   | { rejected: null }
   | { completed: null }
-  | { notFulfilled: null };
+  | { notFulfilled: null }
+  | { received: null };
 
 export interface HistoryEntry {
   actorEmail: string;
@@ -39,12 +40,19 @@ export interface RequisitionView {
   history: HistoryEntry[];
   category: string;
   location: string;
+  attachmentHash: [] | [string];
+  assignedAuthorityEmail: [] | [string];
 }
 
 export interface UserView {
   email: string;
   name: string;
   role: AppRole;
+}
+
+export interface AuthorityView {
+  email: string;
+  name: string;
 }
 
 export interface LoginResult {
@@ -62,12 +70,14 @@ export interface backendInterface {
   updateUser(sessionId: string, email: string, newPassword: [] | [string], newName: [] | [string], newRole: [] | [AppRole]): Promise<{ ok: null } | { err: string }>;
   deleteUser(sessionId: string, email: string): Promise<{ ok: null } | { err: string }>;
   listUsers(sessionId: string): Promise<{ ok: UserView[] } | { err: string }>;
+  getAuthorities(sessionId: string): Promise<{ ok: AuthorityView[] } | { err: string }>;
 
-  createRequisition(sessionId: string, itemName: string, description: string, quantity: bigint, priority: Priority, dateNeeded: string, category: string, location: string): Promise<{ ok: bigint } | { err: string }>;
+  createRequisition(sessionId: string, itemName: string, description: string, quantity: bigint, priority: Priority, dateNeeded: string, category: string, location: string, attachmentHash: [] | [string], assignedAuthorityEmail: [] | [string]): Promise<{ ok: bigint } | { err: string }>;
   getMyRequisitions(sessionId: string): Promise<{ ok: RequisitionView[] } | { err: string }>;
   getAllRequisitions(sessionId: string): Promise<{ ok: RequisitionView[] } | { err: string }>;
   approveRequisition(sessionId: string, id: bigint, remarks: [] | [string]): Promise<{ ok: null } | { err: string }>;
   rejectRequisition(sessionId: string, id: bigint, remarks: string): Promise<{ ok: null } | { err: string }>;
   fulfillRequisition(sessionId: string, id: bigint): Promise<{ ok: null } | { err: string }>;
   markNotFulfilled(sessionId: string, id: bigint, remarks: string): Promise<{ ok: null } | { err: string }>;
+  markReceived(sessionId: string, id: bigint): Promise<{ ok: null } | { err: string }>;
 }
