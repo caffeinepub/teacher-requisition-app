@@ -24,6 +24,7 @@ import {
   Eye,
   PackageCheck,
   Search,
+  UserCog,
   X,
 } from "lucide-react";
 import { useState } from "react";
@@ -39,7 +40,8 @@ type ActionConfig = {
     | "reject"
     | "complete"
     | "notFulfilled"
-    | "received";
+    | "received"
+    | "assignStaff";
   label: string;
   icon: React.ReactNode;
   className: string;
@@ -56,6 +58,7 @@ interface Props {
     | "complete"
     | "notFulfilled"
     | "received"
+    | "assignStaff"
   )[];
   onView?: (req: RequisitionView) => void;
   onApprove?: (req: RequisitionView) => void;
@@ -63,6 +66,7 @@ interface Props {
   onComplete?: (req: RequisitionView) => void;
   onNotFulfilled?: (req: RequisitionView) => void;
   onReceived?: (req: RequisitionView) => void;
+  onAssignStaff?: (req: RequisitionView) => void;
 }
 
 const actionDefs: Record<string, ActionConfig> = {
@@ -102,6 +106,12 @@ const actionDefs: Record<string, ActionConfig> = {
     icon: <PackageCheck size={14} />,
     className: "text-teal-600 hover:text-teal-700 hover:bg-teal-50",
   },
+  assignStaff: {
+    type: "assignStaff",
+    label: "Assign Staff",
+    icon: <UserCog size={14} />,
+    className: "text-purple-600 hover:text-purple-700 hover:bg-purple-50",
+  },
 };
 
 export function RequisitionTable({
@@ -115,6 +125,7 @@ export function RequisitionTable({
   onComplete,
   onNotFulfilled,
   onReceived,
+  onAssignStaff,
 }: Props) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -139,6 +150,7 @@ export function RequisitionTable({
     if (type === "complete") onComplete?.(req);
     if (type === "notFulfilled") onNotFulfilled?.(req);
     if (type === "received") onReceived?.(req);
+    if (type === "assignStaff") onAssignStaff?.(req);
   }
 
   // base cols: ID, Item, Qty, Category, Location, Priority, Date Needed, Status, Actions = 9

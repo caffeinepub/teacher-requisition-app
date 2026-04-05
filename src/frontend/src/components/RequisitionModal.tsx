@@ -16,6 +16,7 @@ import {
   Package,
   Paperclip,
   Shield,
+  UserCog,
   XCircle,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
@@ -82,6 +83,10 @@ export function RequisitionModal({ requisition, open, onClose }: Props) {
   const assignedAuthorityEmail =
     requisition.assignedAuthorityEmail.length > 0
       ? requisition.assignedAuthorityEmail[0]
+      : null;
+  const assignedAdminStaffEmail =
+    requisition.assignedAdminStaffEmail.length > 0
+      ? requisition.assignedAdminStaffEmail[0]
       : null;
 
   return (
@@ -157,6 +162,25 @@ export function RequisitionModal({ requisition, open, onClose }: Props) {
                 ) : (
                   <p className="text-sm text-muted-foreground italic">
                     Not specified
+                  </p>
+                )}
+              </div>
+              <div className="col-span-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1 flex items-center gap-1">
+                  <UserCog size={10} className="text-purple-500" />
+                  Assigned Admin Staff
+                </p>
+                {assignedAdminStaffEmail ? (
+                  <p className="text-sm text-foreground flex items-center gap-1.5">
+                    <UserCog
+                      size={12}
+                      className="text-purple-500 flex-shrink-0"
+                    />
+                    {assignedAdminStaffEmail}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">
+                    Not assigned
                   </p>
                 )}
               </div>

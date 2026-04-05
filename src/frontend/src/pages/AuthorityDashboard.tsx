@@ -1,4 +1,11 @@
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -25,6 +32,7 @@ import {
   ShieldAlert,
   Sparkles,
   Trash2,
+  UserCog,
   Wrench,
   X,
   XCircle,
@@ -38,6 +46,8 @@ import { RequisitionModal } from "../components/RequisitionModal";
 import { RequisitionTable } from "../components/RequisitionTable";
 import {
   useApproveRequisition,
+  useAssignAdminStaff,
+  useGetAdminStaff,
   useGetAllRequisitions,
   useGetPendingRequisitions,
   useMarkReceived,
@@ -104,6 +114,12 @@ export function AuthorityDashboard({ session, onLogout }: Props) {
   const [selectedReq, setSelectedReq] = useState<RequisitionView | null>(null);
   const [actionReq, setActionReq] = useState<RequisitionView | null>(null);
   const [actionType, setActionType] = useState<ActionType | null>(null);
+
+  // Assign staff modal state
+  const [assignReq, setAssignReq] = useState<RequisitionView | null>(null);
+  const [selectedAdminStaff, setSelectedAdminStaff] = useState("");
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+
   const [form, setForm] = useState({
     itemName: "",
     category: "",
@@ -124,6 +140,7 @@ export function AuthorityDashboard({ session, onLogout }: Props) {
   const { data: all = [], isLoading: loadingAll } = useGetAllRequisitions(
     session.sessionId,
   );
+  const { data: adminStaff = [] } = useGetAdminStaff(session.sessionId);
   const { mutateAsync: approve, isPending: isApproving } =
     useApproveRequisition(session.sessionId);
   const { mutateAsync: reject, isPending: isRejecting } = useRejectRequisition(
@@ -132,6 +149,8 @@ export function AuthorityDashboard({ session, onLogout }: Props) {
   const { mutateAsync: submitRequisition, isPending: isSubmitting } =
     useSubmitRequisition(session.sessionId);
   const { mutateAsync: markReceived } = useMarkReceived(session.sessionId);
+  const { mutateAsync: assignAdminStaff, isPending: isAssigning } =
+    useAssignAdminStaff(session.sessionId);
 
   async function handleMarkReceived(req: RequisitionView) {
     try {
@@ -162,6 +181,22 @@ export function AuthorityDashboard({ session, onLogout }: Props) {
       setActionType(null);
     } catch {
       toast.error("Action failed. Please try again.");
+    }
+  }
+
+  async function handleAssignConfirm() {
+    if (!assignReq || !selectedAdminStaff) return;
+    try {
+      await assignAdminStaff({
+        id: assignReq.id,
+        adminStaffEmail: selectedAdminStaff,
+      });
+      toast.success("Admin staff assigned. They have been notified.");
+      setIsAssignModalOpen(false);
+      setAssignReq(null);
+      setSelectedAdminStaff("");
+    } catch {
+      toast.error("Failed to assign admin staff.");
     }
   }
 
@@ -264,6 +299,10 @@ export function AuthorityDashboard({ session, onLogout }: Props) {
   const totalRejected = all.filter((r) => "rejected" in r.status).length;
   const isBusy = isSubmitting || isUploading;
 
+  const currentAssignedEmail = assignReq?.assignedAdminStaffEmail.length
+    ? assignReq.assignedAdminStaffEmail[0]
+    : null;
+
   return (
     <Layout
       session={session}
@@ -349,10 +388,14 @@ export function AuthorityDashboard({ session, onLogout }: Props) {
               data={pending.slice(0, 5)}
               isLoading={loadingPending}
               showTeacher
-              actions={["view", "approve", "reject"]}
+              actions={["view", "approve", "reject", "assignStaff"]}
               onView={setSelectedReq}
               onApprove={(r) => openAction("approve", r)}
               onReject={(r) => openAction("reject", r)}
+              onAssignStaff={(r) => {
+                setAssignReq(r);
+                setIsAssignModalOpen(true);
+              }}
             />
           </div>
         </div>
@@ -383,10 +426,14 @@ export function AuthorityDashboard({ session, onLogout }: Props) {
                 data={pending}
                 isLoading={loadingPending}
                 showTeacher
-                actions={["view", "approve", "reject"]}
+                actions={["view", "approve", "reject", "assignStaff"]}
                 onView={setSelectedReq}
                 onApprove={(r) => openAction("approve", r)}
                 onReject={(r) => openAction("reject", r)}
+                onAssignStaff={(r) => {
+                  setAssignReq(r);
+                  setIsAssignModalOpen(true);
+                }}
               />
             </TabsContent>
             <TabsContent value="all" className="mt-4">
@@ -394,8 +441,12 @@ export function AuthorityDashboard({ session, onLogout }: Props) {
                 data={all}
                 isLoading={loadingAll}
                 showTeacher
-                actions={["view", "received"]}
+                actions={["view", "assignStaff", "received"]}
                 onView={setSelectedReq}
+                onAssignStaff={(r) => {
+                  setAssignReq(r);
+                  setIsAssignModalOpen(true);
+                }}
                 onReceived={(r) => {
                   if ("completed" in r.status) handleMarkReceived(r);
                 }}
@@ -753,6 +804,111 @@ export function AuthorityDashboard({ session, onLogout }: Props) {
         }}
         onConfirm={handleAction}
       />
+
+      {/* Assign Admin Staff Modal */}
+      <Dialog
+        open={isAssignModalOpen}
+        onOpenChange={(v) => {
+          if (!v) {
+            setIsAssignModalOpen(false);
+            setAssignReq(null);
+            setSelectedAdminStaff("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md" data-ocid="assign_staff.dialog">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCog size={18} className="text-purple-500" />
+              Assign Admin Staff
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {assignReq && (
+              <div className="bg-muted/40 rounded-lg px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+                  Requisition
+                </p>
+                <p className="text-sm font-medium text-foreground">
+                  #{assignReq.id.toString()} — {assignReq.itemName}
+                </p>
+              </div>
+            )}
+
+            {currentAssignedEmail && (
+              <div className="flex items-center gap-2 text-xs text-purple-700 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
+                <UserCog size={13} className="flex-shrink-0" />
+                <span>
+                  Currently assigned to:{" "}
+                  <span className="font-semibold">{currentAssignedEmail}</span>
+                </span>
+              </div>
+            )}
+
+            <div>
+              <Label className="text-xs font-semibold">
+                Select Admin Staff <span className="text-destructive">*</span>
+              </Label>
+              {adminStaff.length === 0 ? (
+                <p className="text-sm text-muted-foreground mt-2 bg-muted/40 rounded-lg p-3 italic">
+                  No admin staff users found. Create them in the Super Admin
+                  panel.
+                </p>
+              ) : (
+                <Select
+                  value={selectedAdminStaff}
+                  onValueChange={setSelectedAdminStaff}
+                >
+                  <SelectTrigger
+                    className="mt-1"
+                    data-ocid="assign_staff.select"
+                  >
+                    <SelectValue placeholder="Choose an admin staff member..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {adminStaff.map((staff) => (
+                      <SelectItem key={staff.email} value={staff.email}>
+                        <span className="flex items-center gap-2">
+                          <UserCog size={13} className="text-purple-500" />
+                          {staff.name} ({staff.email})
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsAssignModalOpen(false);
+                setAssignReq(null);
+                setSelectedAdminStaff("");
+              }}
+              data-ocid="assign_staff.cancel_button"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-purple-600 hover:bg-purple-700 text-white gap-2"
+              onClick={handleAssignConfirm}
+              disabled={
+                isAssigning || !selectedAdminStaff || adminStaff.length === 0
+              }
+              data-ocid="assign_staff.confirm_button"
+            >
+              {isAssigning && <Loader2 size={14} className="animate-spin" />}
+              {isAssigning ? "Assigning..." : "Confirm Assignment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

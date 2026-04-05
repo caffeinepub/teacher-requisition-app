@@ -50,6 +50,7 @@ export interface RequisitionView {
   location: string;
   attachmentHash: [] | [string];
   assignedAuthorityEmail: [] | [string];
+  assignedAdminStaffEmail: [] | [string];
 }
 
 export interface UserView {
@@ -61,6 +62,19 @@ export interface UserView {
 export interface AuthorityView {
   email: string;
   name: string;
+}
+
+export interface AdminStaffView {
+  email: string;
+  name: string;
+}
+
+export interface AppNotification {
+  recipientEmail: string;
+  requisitionId: bigint;
+  message: string;
+  createdAt: bigint;
+  isRead: boolean;
 }
 
 export interface LoginResult {
@@ -78,6 +92,7 @@ export interface _SERVICE {
   deleteUser: ActorMethod<[string, string], { ok: null } | { err: string }>;
   listUsers: ActorMethod<[string], { ok: UserView[] } | { err: string }>;
   getAuthorities: ActorMethod<[string], { ok: AuthorityView[] } | { err: string }>;
+  getAdminStaff: ActorMethod<[string], { ok: AdminStaffView[] } | { err: string }>;
   createRequisition: ActorMethod<[string, string, string, bigint, Priority, string, string, string, [] | [string], [] | [string]], { ok: bigint } | { err: string }>;
   getMyRequisitions: ActorMethod<[string], { ok: RequisitionView[] } | { err: string }>;
   getAllRequisitions: ActorMethod<[string], { ok: RequisitionView[] } | { err: string }>;
@@ -86,6 +101,9 @@ export interface _SERVICE {
   fulfillRequisition: ActorMethod<[string, bigint], { ok: null } | { err: string }>;
   markNotFulfilled: ActorMethod<[string, bigint, string], { ok: null } | { err: string }>;
   markReceived: ActorMethod<[string, bigint], { ok: null } | { err: string }>;
+  assignAdminStaff: ActorMethod<[string, bigint, string], { ok: null } | { err: string }>;
+  getNotifications: ActorMethod<[string], { ok: AppNotification[] } | { err: string }>;
+  markNotificationsRead: ActorMethod<[string], { ok: null } | { err: string }>;
 }
 
 export declare const idlService: IDL.ServiceClass;

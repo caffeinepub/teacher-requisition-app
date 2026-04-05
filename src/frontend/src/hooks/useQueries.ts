@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
+  AdminStaffView,
+  AppNotification,
   AppRole,
   AuthorityView,
   Priority,
@@ -91,6 +93,67 @@ export function useGetAuthorities(sessionId: string) {
       return unwrap((actor as any).getAuthorities(sessionId));
     },
     enabled: !!actor && !isFetching && !!sessionId,
+  });
+}
+
+export function useGetAdminStaff(sessionId: string) {
+  const { actor, isFetching } = useActor();
+  return useQuery<AdminStaffView[]>({
+    queryKey: ["adminStaff", sessionId],
+    queryFn: async () => {
+      if (!actor) return [];
+      return unwrap((actor as any).getAdminStaff(sessionId));
+    },
+    enabled: !!actor && !isFetching && !!sessionId,
+  });
+}
+
+export function useAssignAdminStaff(sessionId: string) {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      adminStaffEmail,
+    }: {
+      id: bigint;
+      adminStaffEmail: string;
+    }) => {
+      if (!actor) throw new Error("No actor");
+      return unwrap(
+        (actor as any).assignAdminStaff(sessionId, id, adminStaffEmail),
+      );
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["allRequisitions", sessionId] });
+      qc.invalidateQueries({ queryKey: ["pendingRequisitions", sessionId] });
+    },
+  });
+}
+
+export function useGetNotifications(sessionId: string) {
+  const { actor, isFetching } = useActor();
+  return useQuery<AppNotification[]>({
+    queryKey: ["notifications", sessionId],
+    queryFn: async () => {
+      if (!actor) return [];
+      return unwrap((actor as any).getNotifications(sessionId));
+    },
+    enabled: !!actor && !isFetching && !!sessionId,
+  });
+}
+
+export function useMarkNotificationsRead(sessionId: string) {
+  const { actor } = useActor();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      if (!actor) throw new Error("No actor");
+      return unwrap((actor as any).markNotificationsRead(sessionId));
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["notifications", sessionId] });
+    },
   });
 }
 

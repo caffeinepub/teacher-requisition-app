@@ -1,6 +1,12 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, CheckCircle2, PackageCheck, PackageX } from "lucide-react";
-import { useState } from "react";
+import {
+  Bell,
+  BellDot,
+  CheckCircle2,
+  PackageCheck,
+  PackageX,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ActionModal } from "../components/ActionModal";
 import type { ActionType } from "../components/ActionModal";
@@ -11,10 +17,12 @@ import {
   useCompleteRequisition,
   useGetAllRequisitions,
   useGetApprovedRequisitions,
+  useGetNotifications,
   useMarkNotFulfilled,
+  useMarkNotificationsRead,
 } from "../hooks/useQueries";
 import type { SessionData } from "../hooks/useSession";
-import type { RequisitionView } from "../types";
+import type { AppNotification, RequisitionView } from "../types";
 
 interface Props {
   session: SessionData;
@@ -32,10 +40,38 @@ export function AdminDashboard({ session, onLogout }: Props) {
   const { data: all = [], isLoading: loadingAll } = useGetAllRequisitions(
     session.sessionId,
   );
+  const { data: notifications = [] } = useGetNotifications(session.sessionId);
   const { mutateAsync: complete, isPending: isCompleting } =
     useCompleteRequisition(session.sessionId);
   const { mutateAsync: notFulfilled, isPending: isMarking } =
     useMarkNotFulfilled(session.sessionId);
+  const { mutateAsync: markAllRead } = useMarkNotificationsRead(
+    session.sessionId,
+  );
+
+  // Track which notification IDs have already been shown as toasts
+  const shownNotifIds = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const unread = (notifications as AppNotification[]).filter(
+      (n) => !n.isRead,
+    );
+    if (unread.length === 0) return;
+
+    for (const notif of unread) {
+      const key = `${notif.requisitionId.toString()}-${notif.createdAt.toString()}`;
+      if (shownNotifIds.current.has(key)) continue;
+      shownNotifIds.current.add(key);
+      toast.info(notif.message, { description: "New assignment" });
+    }
+
+    // Mark all as read after showing toasts
+    markAllRead().catch(() => {});
+  }, [notifications, markAllRead]);
+
+  const unreadCount = (notifications as AppNotification[]).filter(
+    (n) => !n.isRead,
+  ).length;
 
   function openAction(type: ActionType, req: RequisitionView) {
     setActionReq(req);
@@ -113,13 +149,24 @@ export function AdminDashboard({ session, onLogout }: Props) {
     >
       {activeNav === "dashboard" && (
         <div className="space-y-6">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground font-display">
-              Admin Staff Dashboard
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Fulfill approved requisitions
-            </p>
+          <div className="flex flex-wrap gap-2 items-start justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground font-display flex items-center gap-2">
+                Admin Staff Dashboard
+                {unreadCount > 0 && (
+                  <span
+                    className="inline-flex items-center gap-1 text-sm font-semibold text-white bg-red-500 rounded-full px-2 py-0.5"
+                    data-ocid="admin_staff.notifications.toast"
+                  >
+                    <BellDot size={13} />
+                    {unreadCount}
+                  </span>
+                )}
+              </h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Fulfill approved requisitions
+              </p>
+            </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {statCards.map((s) => (

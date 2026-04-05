@@ -42,6 +42,7 @@ export interface RequisitionView {
   location: string;
   attachmentHash: [] | [string];
   assignedAuthorityEmail: [] | [string];
+  assignedAdminStaffEmail: [] | [string];
 }
 
 export interface UserView {
@@ -53,6 +54,19 @@ export interface UserView {
 export interface AuthorityView {
   email: string;
   name: string;
+}
+
+export interface AdminStaffView {
+  email: string;
+  name: string;
+}
+
+export interface AppNotification {
+  recipientEmail: string;
+  requisitionId: bigint;
+  message: string;
+  createdAt: bigint;
+  isRead: boolean;
 }
 
 export function getRoleName(role: AppRole): string {

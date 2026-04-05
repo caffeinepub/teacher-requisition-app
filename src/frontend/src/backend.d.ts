@@ -42,6 +42,7 @@ export interface RequisitionView {
   location: string;
   attachmentHash: [] | [string];
   assignedAuthorityEmail: [] | [string];
+  assignedAdminStaffEmail: [] | [string];
 }
 
 export interface UserView {
@@ -53,6 +54,19 @@ export interface UserView {
 export interface AuthorityView {
   email: string;
   name: string;
+}
+
+export interface AdminStaffView {
+  email: string;
+  name: string;
+}
+
+export interface AppNotification {
+  recipientEmail: string;
+  requisitionId: bigint;
+  message: string;
+  createdAt: bigint;
+  isRead: boolean;
 }
 
 export interface LoginResult {
@@ -71,6 +85,7 @@ export interface backendInterface {
   deleteUser(sessionId: string, email: string): Promise<{ ok: null } | { err: string }>;
   listUsers(sessionId: string): Promise<{ ok: UserView[] } | { err: string }>;
   getAuthorities(sessionId: string): Promise<{ ok: AuthorityView[] } | { err: string }>;
+  getAdminStaff(sessionId: string): Promise<{ ok: AdminStaffView[] } | { err: string }>;
 
   createRequisition(sessionId: string, itemName: string, description: string, quantity: bigint, priority: Priority, dateNeeded: string, category: string, location: string, attachmentHash: [] | [string], assignedAuthorityEmail: [] | [string]): Promise<{ ok: bigint } | { err: string }>;
   getMyRequisitions(sessionId: string): Promise<{ ok: RequisitionView[] } | { err: string }>;
@@ -80,4 +95,8 @@ export interface backendInterface {
   fulfillRequisition(sessionId: string, id: bigint): Promise<{ ok: null } | { err: string }>;
   markNotFulfilled(sessionId: string, id: bigint, remarks: string): Promise<{ ok: null } | { err: string }>;
   markReceived(sessionId: string, id: bigint): Promise<{ ok: null } | { err: string }>;
+  assignAdminStaff(sessionId: string, id: bigint, adminStaffEmail: string): Promise<{ ok: null } | { err: string }>;
+
+  getNotifications(sessionId: string): Promise<{ ok: AppNotification[] } | { err: string }>;
+  markNotificationsRead(sessionId: string): Promise<{ ok: null } | { err: string }>;
 }

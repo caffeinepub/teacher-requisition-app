@@ -18,7 +18,16 @@ actor {
   type User = { email : Text; passwordHash : Text; name : Text; role : AppRole };
   type UserView = { email : Text; name : Text; role : AppRole };
   type AuthorityView = { email : Text; name : Text };
+  type AdminStaffView = { email : Text; name : Text };
   type HistoryEntry = { actorEmail : Text; actorName : Text; timestamp : Int; status : Status; remarks : ?Text };
+
+  type AppNotification = {
+    recipientEmail : Text;
+    requisitionId : Nat;
+    message : Text;
+    createdAt : Int;
+    isRead : Bool;
+  };
 
   // Legacy tuple (10 fields)
   type ReqTupleLegacy = (Text, Text, Text, Nat, Priority, Text, Text, Int, Status, [HistoryEntry]);
@@ -27,7 +36,9 @@ actor {
   // V3 tuple (13 fields: +attachmentHash)
   type ReqTupleV3 = (Text, Text, Text, Nat, Priority, Text, Text, Int, Status, [HistoryEntry], Text, Text, ?Text);
   // V4 tuple (14 fields: +assignedAuthorityEmail)
-  type ReqTuple = (Text, Text, Text, Nat, Priority, Text, Text, Int, Status, [HistoryEntry], Text, Text, ?Text, ?Text);
+  type ReqTupleV4 = (Text, Text, Text, Nat, Priority, Text, Text, Int, Status, [HistoryEntry], Text, Text, ?Text, ?Text);
+  // V5 tuple (15 fields: +assignedAdminStaffEmail)
+  type ReqTuple = (Text, Text, Text, Nat, Priority, Text, Text, Int, Status, [HistoryEntry], Text, Text, ?Text, ?Text, ?Text);
 
   type RequisitionView = {
     id : Nat;
@@ -45,27 +56,33 @@ actor {
     location : Text;
     attachmentHash : ?Text;
     assignedAuthorityEmail : ?Text;
+    assignedAdminStaffEmail : ?Text;
   };
 
   type Session = { email : Text; name : Text; role : AppRole; createdAt : Int };
   type LoginResult = { sessionId : Text; name : Text; role : AppRole };
 
-  var usersEntries : [(Text, User)] = [];
-  var sessionsEntries : [(Text, Session)] = [];
-  var requisitionsEntries : [(Nat, ReqTupleLegacy)] = [];
-  var requisitionsEntriesV2 : [(Nat, ReqTupleV2)] = [];
-  var requisitionsEntriesV3 : [(Nat, ReqTupleV3)] = [];
-  var requisitionsEntriesV4 : [(Nat, ReqTuple)] = [];
-  var nextReqId : Nat = 1;
-  var sessionCounter : Nat = 0;
+  // Stable serialization arrays (survive upgrades)
+  stable var usersEntries : [(Text, User)] = [];
+  stable var sessionsEntries : [(Text, Session)] = [];
+  stable var requisitionsEntries : [(Nat, ReqTupleLegacy)] = [];
+  stable var requisitionsEntriesV2 : [(Nat, ReqTupleV2)] = [];
+  stable var requisitionsEntriesV3 : [(Nat, ReqTupleV3)] = [];
+  stable var requisitionsEntriesV4 : [(Nat, ReqTupleV4)] = [];
+  stable var requisitionsEntriesV5 : [(Nat, ReqTuple)] = [];
+  stable var notificationsEntries : [AppNotification] = [];
+  stable var nextReqId : Nat = 1;
+  stable var sessionCounter : Nat = 0;
 
   func natHash(n : Nat) : Nat32 { Nat32.fromNat(n % 2_147_483_647) };
 
+  // In-memory working state (transient — HashMaps are not stable types)
   transient var users : HashMap.HashMap<Text, User> = HashMap.fromIter(Iter.fromArray(usersEntries), 10, Text.equal, Text.hash);
   transient var sessions : HashMap.HashMap<Text, Session> = HashMap.fromIter(Iter.fromArray(sessionsEntries), 10, Text.equal, Text.hash);
-  transient var requisitions : HashMap.HashMap<Nat, ReqTuple> = HashMap.fromIter(Iter.fromArray(requisitionsEntriesV4), 10, Nat.equal, natHash);
+  transient var requisitions : HashMap.HashMap<Nat, ReqTuple> = HashMap.fromIter(Iter.fromArray(requisitionsEntriesV5), 10, Nat.equal, natHash);
+  transient var notificationStore : [AppNotification] = notificationsEntries;
 
-  let adminEmail = "murtazatinwala@msbinstitute.com";
+  stable let adminEmail = "murtazatinwala@msbinstitute.com";
 
   func seedAdmin() {
     if (users.get(adminEmail) == null) {
@@ -98,6 +115,7 @@ actor {
       location = t.11;
       attachmentHash = t.12;
       assignedAuthorityEmail = t.13;
+      assignedAdminStaffEmail = t.14;
     };
   };
 
@@ -137,6 +155,24 @@ actor {
           )
         );
         #ok(auths);
+      };
+    };
+  };
+
+  public query func getAdminStaff(sessionId : Text) : async Result.Result<[AdminStaffView], Text> {
+    switch (sessions.get(sessionId)) {
+      case null { #err("Not authenticated.") };
+      case (?_s) {
+        let staff = Iter.toArray(
+          Iter.map(
+            Iter.filter(
+              users.entries(),
+              func((_, u) : (Text, User)) : Bool { u.role == #adminStaff }
+            ),
+            func((_, u) : (Text, User)) : AdminStaffView { { email = u.email; name = u.name } }
+          )
+        );
+        #ok(staff);
       };
     };
   };
@@ -211,7 +247,7 @@ actor {
         nextReqId += 1;
         let now = Time.now();
         let entry : HistoryEntry = { actorEmail = s.email; actorName = s.name; timestamp = now; status = #pending; remarks = null };
-        requisitions.put(id, (itemName, description, s.email, quantity, priority, dateNeeded, s.name, now, #pending, [entry], category, location, attachmentHash, assignedAuthorityEmail));
+        requisitions.put(id, (itemName, description, s.email, quantity, priority, dateNeeded, s.name, now, #pending, [entry], category, location, attachmentHash, assignedAuthorityEmail, null));
         #ok(id);
       };
     };
@@ -248,6 +284,60 @@ actor {
     };
   };
 
+  public func assignAdminStaff(sessionId : Text, id : Nat, adminStaffEmail : Text) : async Result.Result<(), Text> {
+    switch (getSession(sessionId)) {
+      case null { #err("Not authenticated.") };
+      case (?s) {
+        if (s.role != #authority) return #err("Only authority can assign admin staff.");
+        switch (requisitions.get(id)) {
+          case null { #err("Requisition not found.") };
+          case (?t) {
+            switch (users.get(adminStaffEmail)) {
+              case null { #err("Admin staff user not found.") };
+              case (?u) {
+                if (u.role != #adminStaff) return #err("User is not an admin staff member.");
+                requisitions.put(id, (t.0, t.1, t.2, t.3, t.4, t.5, t.6, t.7, t.8, t.9, t.10, t.11, t.12, t.13, ?adminStaffEmail));
+                let notif : AppNotification = {
+                  recipientEmail = adminStaffEmail;
+                  requisitionId = id;
+                  message = "You have been assigned requisition #" # Nat.toText(id) # ": " # t.0;
+                  createdAt = Time.now();
+                  isRead = false;
+                };
+                notificationStore := Array.append(notificationStore, [notif]);
+                #ok(());
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+
+  public query func getNotifications(sessionId : Text) : async Result.Result<[AppNotification], Text> {
+    switch (sessions.get(sessionId)) {
+      case null { #err("Not authenticated.") };
+      case (?s) {
+        let myNotifs = Array.filter(notificationStore, func(n : AppNotification) : Bool { n.recipientEmail == s.email });
+        #ok(myNotifs);
+      };
+    };
+  };
+
+  public func markNotificationsRead(sessionId : Text) : async Result.Result<(), Text> {
+    switch (getSession(sessionId)) {
+      case null { #err("Not authenticated.") };
+      case (?s) {
+        notificationStore := Array.map(notificationStore, func(n : AppNotification) : AppNotification {
+          if (n.recipientEmail == s.email) {
+            { recipientEmail = n.recipientEmail; requisitionId = n.requisitionId; message = n.message; createdAt = n.createdAt; isRead = true }
+          } else { n }
+        });
+        #ok(());
+      };
+    };
+  };
+
   public func approveRequisition(sessionId : Text, id : Nat, remarks : ?Text) : async Result.Result<(), Text> {
     switch (getSession(sessionId)) {
       case null { #err("Not authenticated.") };
@@ -258,7 +348,7 @@ actor {
           case (?t) {
             if (t.8 != #pending) return #err("Only pending requisitions can be approved.");
             let entry : HistoryEntry = { actorEmail = s.email; actorName = s.name; timestamp = Time.now(); status = #approved; remarks };
-            requisitions.put(id, (t.0, t.1, t.2, t.3, t.4, t.5, t.6, t.7, #approved, Array.append(t.9, [entry]), t.10, t.11, t.12, t.13));
+            requisitions.put(id, (t.0, t.1, t.2, t.3, t.4, t.5, t.6, t.7, #approved, Array.append(t.9, [entry]), t.10, t.11, t.12, t.13, t.14));
             #ok(());
           };
         };
@@ -276,7 +366,7 @@ actor {
           case (?t) {
             if (t.8 != #pending) return #err("Only pending requisitions can be rejected.");
             let entry : HistoryEntry = { actorEmail = s.email; actorName = s.name; timestamp = Time.now(); status = #rejected; remarks = ?remarks };
-            requisitions.put(id, (t.0, t.1, t.2, t.3, t.4, t.5, t.6, t.7, #rejected, Array.append(t.9, [entry]), t.10, t.11, t.12, t.13));
+            requisitions.put(id, (t.0, t.1, t.2, t.3, t.4, t.5, t.6, t.7, #rejected, Array.append(t.9, [entry]), t.10, t.11, t.12, t.13, t.14));
             #ok(());
           };
         };
@@ -294,7 +384,7 @@ actor {
           case (?t) {
             if (t.8 != #approved) return #err("Only approved requisitions can be fulfilled.");
             let entry : HistoryEntry = { actorEmail = s.email; actorName = s.name; timestamp = Time.now(); status = #completed; remarks = null };
-            requisitions.put(id, (t.0, t.1, t.2, t.3, t.4, t.5, t.6, t.7, #completed, Array.append(t.9, [entry]), t.10, t.11, t.12, t.13));
+            requisitions.put(id, (t.0, t.1, t.2, t.3, t.4, t.5, t.6, t.7, #completed, Array.append(t.9, [entry]), t.10, t.11, t.12, t.13, t.14));
             #ok(());
           };
         };
@@ -312,7 +402,7 @@ actor {
           case (?t) {
             if (t.8 != #approved) return #err("Only approved requisitions can be marked not fulfilled.");
             let entry : HistoryEntry = { actorEmail = s.email; actorName = s.name; timestamp = Time.now(); status = #notFulfilled; remarks = ?remarks };
-            requisitions.put(id, (t.0, t.1, t.2, t.3, t.4, t.5, t.6, t.7, #notFulfilled, Array.append(t.9, [entry]), t.10, t.11, t.12, t.13));
+            requisitions.put(id, (t.0, t.1, t.2, t.3, t.4, t.5, t.6, t.7, #notFulfilled, Array.append(t.9, [entry]), t.10, t.11, t.12, t.13, t.14));
             #ok(());
           };
         };
@@ -331,7 +421,7 @@ actor {
             if (t.2 != s.email) return #err("You can only mark your own requisitions as received.");
             if (t.8 != #completed) return #err("Only completed requisitions can be marked as received.");
             let entry : HistoryEntry = { actorEmail = s.email; actorName = s.name; timestamp = Time.now(); status = #received; remarks = null };
-            requisitions.put(id, (t.0, t.1, t.2, t.3, t.4, t.5, t.6, t.7, #received, Array.append(t.9, [entry]), t.10, t.11, t.12, t.13));
+            requisitions.put(id, (t.0, t.1, t.2, t.3, t.4, t.5, t.6, t.7, #received, Array.append(t.9, [entry]), t.10, t.11, t.12, t.13, t.14));
             #ok(());
           };
         };
@@ -342,7 +432,9 @@ actor {
   system func preupgrade() {
     usersEntries := Iter.toArray(users.entries());
     sessionsEntries := Iter.toArray(sessions.entries());
-    requisitionsEntriesV4 := Iter.toArray(requisitions.entries());
+    requisitionsEntriesV5 := Iter.toArray(requisitions.entries());
+    notificationsEntries := notificationStore;
+    requisitionsEntriesV4 := [];
     requisitionsEntriesV3 := [];
     requisitionsEntriesV2 := [];
     requisitionsEntries := [];
@@ -352,22 +444,28 @@ actor {
     users := HashMap.fromIter(Iter.fromArray(usersEntries), 10, Text.equal, Text.hash);
     sessions := HashMap.fromIter(Iter.fromArray(sessionsEntries), 10, Text.equal, Text.hash);
     let legacyMigrated = Array.map<(Nat, ReqTupleLegacy), (Nat, ReqTuple)>(requisitionsEntries, func((id, t) : (Nat, ReqTupleLegacy)) : (Nat, ReqTuple) {
-      (id, (t.0, t.1, t.2, t.3, t.4, t.5, t.6, t.7, t.8, t.9, "", "", null, null))
+      (id, (t.0, t.1, t.2, t.3, t.4, t.5, t.6, t.7, t.8, t.9, "", "", null, null, null))
     });
     let v2Migrated = Array.map<(Nat, ReqTupleV2), (Nat, ReqTuple)>(requisitionsEntriesV2, func((id, t) : (Nat, ReqTupleV2)) : (Nat, ReqTuple) {
-      (id, (t.0, t.1, t.2, t.3, t.4, t.5, t.6, t.7, t.8, t.9, t.10, t.11, null, null))
+      (id, (t.0, t.1, t.2, t.3, t.4, t.5, t.6, t.7, t.8, t.9, t.10, t.11, null, null, null))
     });
     let v3Migrated = Array.map<(Nat, ReqTupleV3), (Nat, ReqTuple)>(requisitionsEntriesV3, func((id, t) : (Nat, ReqTupleV3)) : (Nat, ReqTuple) {
-      (id, (t.0, t.1, t.2, t.3, t.4, t.5, t.6, t.7, t.8, t.9, t.10, t.11, t.12, null))
+      (id, (t.0, t.1, t.2, t.3, t.4, t.5, t.6, t.7, t.8, t.9, t.10, t.11, t.12, null, null))
     });
-    let combined = Array.append(Array.append(Array.append(legacyMigrated, v2Migrated), v3Migrated), requisitionsEntriesV4);
+    let v4Migrated = Array.map<(Nat, ReqTupleV4), (Nat, ReqTuple)>(requisitionsEntriesV4, func((id, t) : (Nat, ReqTupleV4)) : (Nat, ReqTuple) {
+      (id, (t.0, t.1, t.2, t.3, t.4, t.5, t.6, t.7, t.8, t.9, t.10, t.11, t.12, t.13, null))
+    });
+    let combined = Array.append(Array.append(Array.append(Array.append(legacyMigrated, v2Migrated), v3Migrated), v4Migrated), requisitionsEntriesV5);
     requisitions := HashMap.fromIter(Iter.fromArray(combined), 10, Nat.equal, natHash);
+    notificationStore := notificationsEntries;
     usersEntries := [];
     sessionsEntries := [];
     requisitionsEntries := [];
     requisitionsEntriesV2 := [];
     requisitionsEntriesV3 := [];
     requisitionsEntriesV4 := [];
+    requisitionsEntriesV5 := [];
+    notificationsEntries := [];
     seedAdmin();
   };
 };

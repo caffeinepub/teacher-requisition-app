@@ -4,7 +4,7 @@
 
 import { Actor, HttpAgent, type HttpAgentOptions, type ActorConfig, type Agent, type ActorSubclass } from "@icp-sdk/core/agent";
 import type { Principal } from "@icp-sdk/core/principal";
-import { idlFactory, type _SERVICE, type AppRole, type LoginResult, type UserView, type AuthorityView, type RequisitionView, type Priority, type Status } from "./declarations/backend.did";
+import { idlFactory, type _SERVICE, type AppRole, type LoginResult, type UserView, type AuthorityView, type AdminStaffView, type AppNotification, type RequisitionView, type Priority, type Status } from "./declarations/backend.did";
 export interface Some<T> {
     __kind__: "Some";
     value: T;
@@ -62,6 +62,7 @@ export interface backendInterface {
     deleteUser(sessionId: string, email: string): Promise<{ ok: null } | { err: string }>;
     listUsers(sessionId: string): Promise<{ ok: UserView[] } | { err: string }>;
     getAuthorities(sessionId: string): Promise<{ ok: AuthorityView[] } | { err: string }>;
+    getAdminStaff(sessionId: string): Promise<{ ok: AdminStaffView[] } | { err: string }>;
     createRequisition(sessionId: string, itemName: string, description: string, quantity: bigint, priority: Priority, dateNeeded: string, category: string, location: string, attachmentHash: [] | [string], assignedAuthorityEmail: [] | [string]): Promise<{ ok: bigint } | { err: string }>;
     getMyRequisitions(sessionId: string): Promise<{ ok: RequisitionView[] } | { err: string }>;
     getAllRequisitions(sessionId: string): Promise<{ ok: RequisitionView[] } | { err: string }>;
@@ -70,6 +71,9 @@ export interface backendInterface {
     fulfillRequisition(sessionId: string, id: bigint): Promise<{ ok: null } | { err: string }>;
     markNotFulfilled(sessionId: string, id: bigint, remarks: string): Promise<{ ok: null } | { err: string }>;
     markReceived(sessionId: string, id: bigint): Promise<{ ok: null } | { err: string }>;
+    assignAdminStaff(sessionId: string, id: bigint, adminStaffEmail: string): Promise<{ ok: null } | { err: string }>;
+    getNotifications(sessionId: string): Promise<{ ok: AppNotification[] } | { err: string }>;
+    markNotificationsRead(sessionId: string): Promise<{ ok: null } | { err: string }>;
 }
 
 export class Backend implements backendInterface {
@@ -99,6 +103,9 @@ export class Backend implements backendInterface {
     async getAuthorities(sessionId: string) {
         return this.actor.getAuthorities(sessionId);
     }
+    async getAdminStaff(sessionId: string) {
+        return this.actor.getAdminStaff(sessionId);
+    }
     async createRequisition(sessionId: string, itemName: string, description: string, quantity: bigint, priority: Priority, dateNeeded: string, category: string, location: string, attachmentHash: [] | [string], assignedAuthorityEmail: [] | [string]) {
         return this.actor.createRequisition(sessionId, itemName, description, quantity, priority, dateNeeded, category, location, attachmentHash, assignedAuthorityEmail);
     }
@@ -122,6 +129,15 @@ export class Backend implements backendInterface {
     }
     async markReceived(sessionId: string, id: bigint) {
         return this.actor.markReceived(sessionId, id);
+    }
+    async assignAdminStaff(sessionId: string, id: bigint, adminStaffEmail: string) {
+        return this.actor.assignAdminStaff(sessionId, id, adminStaffEmail);
+    }
+    async getNotifications(sessionId: string) {
+        return this.actor.getNotifications(sessionId);
+    }
+    async markNotificationsRead(sessionId: string) {
+        return this.actor.markNotificationsRead(sessionId);
     }
 
     getUploadFile() {
