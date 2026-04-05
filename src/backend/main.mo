@@ -383,6 +383,15 @@ actor {
           case null { #err("Requisition not found.") };
           case (?t) {
             if (t.8 != #approved) return #err("Only approved requisitions can be fulfilled.");
+            // If an admin staff is assigned, only they can complete it (superAdmin bypass)
+            switch (t.14) {
+              case (?assigned) {
+                if (s.role == #adminStaff and s.email != assigned) {
+                  return #err("Only the assigned admin staff can complete this requisition.");
+                };
+              };
+              case null {};
+            };
             let entry : HistoryEntry = { actorEmail = s.email; actorName = s.name; timestamp = Time.now(); status = #completed; remarks = null };
             requisitions.put(id, (t.0, t.1, t.2, t.3, t.4, t.5, t.6, t.7, #completed, Array.append(t.9, [entry]), t.10, t.11, t.12, t.13, t.14));
             #ok(());
@@ -401,6 +410,15 @@ actor {
           case null { #err("Requisition not found.") };
           case (?t) {
             if (t.8 != #approved) return #err("Only approved requisitions can be marked not fulfilled.");
+            // If an admin staff is assigned, only they can mark not fulfilled (superAdmin bypass)
+            switch (t.14) {
+              case (?assigned) {
+                if (s.role == #adminStaff and s.email != assigned) {
+                  return #err("Only the assigned admin staff can mark this requisition as not fulfilled.");
+                };
+              };
+              case null {};
+            };
             let entry : HistoryEntry = { actorEmail = s.email; actorName = s.name; timestamp = Time.now(); status = #notFulfilled; remarks = ?remarks };
             requisitions.put(id, (t.0, t.1, t.2, t.3, t.4, t.5, t.6, t.7, #notFulfilled, Array.append(t.9, [entry]), t.10, t.11, t.12, t.13, t.14));
             #ok(());

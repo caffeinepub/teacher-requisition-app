@@ -6,7 +6,7 @@ import {
   PackageCheck,
   PackageX,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ActionModal } from "../components/ActionModal";
 import type { ActionType } from "../components/ActionModal";
@@ -15,6 +15,7 @@ import { RequisitionModal } from "../components/RequisitionModal";
 import { RequisitionTable } from "../components/RequisitionTable";
 import {
   useCompleteRequisition,
+  useGetAdminStaff,
   useGetAllRequisitions,
   useGetApprovedRequisitions,
   useGetNotifications,
@@ -41,12 +42,19 @@ export function AdminDashboard({ session, onLogout }: Props) {
     session.sessionId,
   );
   const { data: notifications = [] } = useGetNotifications(session.sessionId);
+  const { data: adminStaffList = [] } = useGetAdminStaff(session.sessionId);
   const { mutateAsync: complete, isPending: isCompleting } =
     useCompleteRequisition(session.sessionId);
   const { mutateAsync: notFulfilled, isPending: isMarking } =
     useMarkNotFulfilled(session.sessionId);
   const { mutateAsync: markAllRead } = useMarkNotificationsRead(
     session.sessionId,
+  );
+
+  // Build a map of email → name for all admin staff
+  const adminStaffMap = useMemo(
+    () => Object.fromEntries(adminStaffList.map((s) => [s.email, s.name])),
+    [adminStaffList],
   );
 
   // Track which notification IDs have already been shown as toasts
@@ -202,6 +210,8 @@ export function AdminDashboard({ session, onLogout }: Props) {
               onView={setSelectedReq}
               onComplete={(r) => openAction("complete", r)}
               onNotFulfilled={(r) => openAction("notFulfilled", r)}
+              currentUserEmail={session.email}
+              adminStaffMap={adminStaffMap}
             />
           </div>
         </div>
@@ -239,6 +249,8 @@ export function AdminDashboard({ session, onLogout }: Props) {
                 onView={setSelectedReq}
                 onComplete={(r) => openAction("complete", r)}
                 onNotFulfilled={(r) => openAction("notFulfilled", r)}
+                currentUserEmail={session.email}
+                adminStaffMap={adminStaffMap}
               />
             </TabsContent>
             <TabsContent value="all" className="mt-4">
@@ -248,6 +260,7 @@ export function AdminDashboard({ session, onLogout }: Props) {
                 showTeacher
                 actions={["view"]}
                 onView={setSelectedReq}
+                adminStaffMap={adminStaffMap}
               />
             </TabsContent>
           </Tabs>

@@ -7,13 +7,17 @@ export interface SessionData {
   sessionId: string;
   name: string;
   role: AppRole;
+  email: string;
 }
 
 export function loadSession(): SessionData | null {
   try {
     const raw = localStorage.getItem(SESSION_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as SessionData;
+    const parsed = JSON.parse(raw) as SessionData;
+    // Backward compat: if email is missing from stored session, clear it
+    if (!parsed.email) return null;
+    return parsed;
   } catch {
     return null;
   }

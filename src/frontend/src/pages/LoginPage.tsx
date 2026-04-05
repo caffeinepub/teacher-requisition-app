@@ -34,7 +34,7 @@ export function LoginPage({ onLogin }: Props) {
       const result = await (actor as any).login(email.trim(), password);
       if ("ok" in result) {
         const { sessionId, name, role } = result.ok;
-        onLogin({ sessionId, name, role });
+        onLogin({ sessionId, name, role, email: email.trim() });
         toast.success(`Welcome back, ${name}!`);
       } else {
         setError(result.err || "Invalid credentials. Please try again.");

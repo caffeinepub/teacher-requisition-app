@@ -67,6 +67,10 @@ interface Props {
   onNotFulfilled?: (req: RequisitionView) => void;
   onReceived?: (req: RequisitionView) => void;
   onAssignStaff?: (req: RequisitionView) => void;
+  /** Email of the currently logged-in admin staff. When provided, gates complete/notFulfilled buttons. */
+  currentUserEmail?: string;
+  /** Map of email → name for admin staff, used to display assigned staff names. */
+  adminStaffMap?: Record<string, string>;
 }
 
 const actionDefs: Record<string, ActionConfig> = {
@@ -126,6 +130,8 @@ export function RequisitionTable({
   onNotFulfilled,
   onReceived,
   onAssignStaff,
+  currentUserEmail,
+  adminStaffMap,
 }: Props) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -153,9 +159,14 @@ export function RequisitionTable({
     if (type === "assignStaff") onAssignStaff?.(req);
   }
 
+  // Determine if we should show the "Assigned Staff" column
+  // Show it when adminStaffMap is provided (i.e. we're in Admin Staff context)
+  const showAssignedStaff = adminStaffMap !== undefined;
+
   // base cols: ID, Item, Qty, Category, Location, Priority, Date Needed, Status, Actions = 9
-  // +1 if showTeacher
-  const colSpan = showTeacher ? 10 : 9;
+  // +1 if showTeacher, +1 if showAssignedStaff
+  let colSpan = showTeacher ? 10 : 9;
+  if (showAssignedStaff) colSpan += 1;
 
   return (
     <div className="space-y-3">
@@ -240,6 +251,11 @@ export function RequisitionTable({
               <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-32">
                 Status
               </TableHead>
+              {showAssignedStaff && (
+                <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide w-36">
+                  Assigned Staff
+                </TableHead>
+              )}
               <TableHead className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide text-right">
                 Actions
               </TableHead>
@@ -272,6 +288,54 @@ export function RequisitionTable({
             ) : (
               filtered.map((req, idx) => {
                 const isAlreadyReceived = "received" in req.status;
+
+                // Determine if complete/notFulfilled actions should be shown for this row
+                // If currentUserEmail is provided, check assignment gating
+                let canActOnRow = true;
+                if (currentUserEmail !== undefined) {
+                  const assignedEmail =
+                    req.assignedAdminStaffEmail.length > 0
+                      ? (req.assignedAdminStaffEmail[0] as string)
+                      : null;
+                  if (
+                    assignedEmail !== null &&
+                    assignedEmail !== currentUserEmail
+                  ) {
+                    canActOnRow = false;
+                  }
+                }
+
+                // Resolve assigned staff display name
+                let assignedStaffDisplay: React.ReactNode = (
+                  <span className="italic opacity-50">—</span>
+                );
+                if (
+                  showAssignedStaff &&
+                  req.assignedAdminStaffEmail.length > 0
+                ) {
+                  const assignedEmail = req
+                    .assignedAdminStaffEmail[0] as string;
+                  const staffName = adminStaffMap?.[assignedEmail];
+                  if (staffName) {
+                    assignedStaffDisplay = (
+                      <span className="text-xs font-medium text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full whitespace-nowrap">
+                        {staffName}
+                      </span>
+                    );
+                  } else {
+                    // Email fallback, truncated
+                    const truncated =
+                      assignedEmail.length > 18
+                        ? `${assignedEmail.slice(0, 16)}…`
+                        : assignedEmail;
+                    assignedStaffDisplay = (
+                      <span className="text-xs font-medium text-indigo-700">
+                        {truncated}
+                      </span>
+                    );
+                  }
+                }
+
                 return (
                   <TableRow
                     key={req.id.toString()}
@@ -316,6 +380,11 @@ export function RequisitionTable({
                     <TableCell>
                       <StatusBadge status={req.status} />
                     </TableCell>
+                    {showAssignedStaff && (
+                      <TableCell data-ocid={`table.assigned_staff.${idx + 1}`}>
+                        {assignedStaffDisplay}
+                      </TableCell>
+                    )}
                     <TableCell className="text-right">
                       <div
                         className="flex items-center justify-end gap-1"
@@ -323,6 +392,14 @@ export function RequisitionTable({
                         onKeyDown={(e) => e.stopPropagation()}
                       >
                         {actions.map((a) => {
+                          // Gate complete and notFulfilled actions based on assignment
+                          if (
+                            (a === "complete" || a === "notFulfilled") &&
+                            !canActOnRow
+                          ) {
+                            return null;
+                          }
+
                           // For "received" action: show a static tick if already received,
                           // show the button only if status is completed
                           if (a === "received") {
