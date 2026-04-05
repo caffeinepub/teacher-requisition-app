@@ -8,9 +8,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2 } from "lucide-react";
+import { Loader2, UserCog } from "lucide-react";
 import { useState } from "react";
+import type { AdminStaffView } from "../types";
 
 export type ActionType = "approve" | "reject" | "complete" | "notFulfilled";
 
@@ -20,7 +28,9 @@ interface Props {
   requisitionId: bigint | null;
   isPending: boolean;
   onClose: () => void;
-  onConfirm: (id: bigint, remarks: string) => void;
+  onConfirm: (id: bigint, remarks: string, adminStaffEmail?: string) => void;
+  adminStaff?: AdminStaffView[];
+  currentAssignedAdminStaff?: string | null;
 }
 
 const actionConfig: Record<
@@ -36,10 +46,10 @@ const actionConfig: Record<
 > = {
   approve: {
     title: "Approve Requisition",
-    description: "Are you sure you want to approve this requisition?",
+    description: "Assign an admin staff member and approve this requisition.",
     remarksLabel: "Remarks (optional)",
     required: false,
-    confirmLabel: "Approve",
+    confirmLabel: "Assign & Approve",
     confirmClass: "bg-green-600 hover:bg-green-700 text-white",
   },
   reject: {
@@ -75,15 +85,21 @@ export function ActionModal({
   isPending,
   onClose,
   onConfirm,
+  adminStaff,
+  currentAssignedAdminStaff,
 }: Props) {
   const [remarks, setRemarks] = useState("");
   const [error, setError] = useState("");
+  const [selectedAdminStaff, setSelectedAdminStaff] = useState("");
 
   const config = actionType ? actionConfig[actionType] : null;
+  const isApprove = actionType === "approve";
+  const showStaffSelect = isApprove && adminStaff !== undefined;
 
   function handleClose() {
     setRemarks("");
     setError("");
+    setSelectedAdminStaff("");
     onClose();
   }
 
@@ -93,8 +109,16 @@ export function ActionModal({
       setError("This field is required.");
       return;
     }
+    if (showStaffSelect && !selectedAdminStaff) {
+      setError("Please select an admin staff member before approving.");
+      return;
+    }
     setError("");
-    onConfirm(requisitionId, remarks);
+    onConfirm(
+      requisitionId,
+      remarks,
+      isApprove ? selectedAdminStaff : undefined,
+    );
   }
 
   return (
@@ -104,7 +128,49 @@ export function ActionModal({
           <DialogTitle>{config?.title}</DialogTitle>
           <DialogDescription>{config?.description}</DialogDescription>
         </DialogHeader>
-        <div className="space-y-3">
+        <div className="space-y-4">
+          {showStaffSelect && (
+            <div>
+              <Label className="text-xs font-semibold">
+                Assign Admin Staff <span className="text-destructive">*</span>
+              </Label>
+              {currentAssignedAdminStaff && (
+                <p className="text-[11px] text-purple-600 mt-0.5 mb-1">
+                  Currently assigned:{" "}
+                  <span className="font-semibold">
+                    {currentAssignedAdminStaff}
+                  </span>
+                </p>
+              )}
+              {adminStaff && adminStaff.length === 0 ? (
+                <p className="text-sm text-muted-foreground mt-1 bg-muted/40 rounded-lg p-3 italic">
+                  No admin staff found. Create them in the Super Admin panel.
+                </p>
+              ) : (
+                <Select
+                  value={selectedAdminStaff}
+                  onValueChange={setSelectedAdminStaff}
+                >
+                  <SelectTrigger
+                    className="mt-1"
+                    data-ocid="action.assign_staff.select"
+                  >
+                    <SelectValue placeholder="Choose an admin staff member..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {adminStaff?.map((staff) => (
+                      <SelectItem key={staff.email} value={staff.email}>
+                        <span className="flex items-center gap-2">
+                          <UserCog size={13} className="text-purple-500" />
+                          {staff.name} ({staff.email})
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
           <div>
             <Label htmlFor="action-remarks" className="text-xs font-medium">
               {config?.remarksLabel}
@@ -142,7 +208,10 @@ export function ActionModal({
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={isPending}
+            disabled={
+              isPending ||
+              (showStaffSelect && (!adminStaff || adminStaff.length === 0))
+            }
             className={config?.confirmClass}
             data-ocid="action.confirm_button"
           >
